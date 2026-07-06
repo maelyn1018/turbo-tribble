@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>日程管理</title>
+
+<!-- PWA Meta Tags -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4DB8E8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="日程管理">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --blue:#007AFF;--blue-light:#E8F2FF;--blue-bg:#F0F7FF;
+  --bg:#F2F2F7;--card:#FFFFFF;--text:#1C1C1E;--text2:#8E8E93;
+  --border:#E5E5EA;--success:#34C759;--danger:#FF3B30;
+  --radius:14px;--radius-sm:10px;
+  --shadow:0 2px 12px rgba(0,0,0,.08);
+  --glass:rgba(255,255,255,.72);
+  --safe-bottom:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+#app{max-width:420px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+
+/* ===== Page Container ===== */
+.page{flex:1;overflow:hidden;display:none;padding-bottom:calc(58px + var(--safe-bottom))}
+
+.page.active{display:flex;flex-direction:column}
+
+/* ===== Tab Bar ===== */
+.tab-bar{display:flex;justify-content:space-around;align-items:stretch;height:58px;background:#FFFFFF;border-top:.5px solid var(--border);flex-shrink:0;z-index:10;padding-bottom:var(--safe-bottom);position:relative}
+.tab-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:4px 0;border-radius:0;transition:all .2s ease;flex:1;-webkit-tap-highlight-color:transparent;overflow:hidden;position:relative}
+.tab-item svg{width:24px;height:24px;fill:var(--text2);transition:all .25s ease;flex-shrink:0}
+.tab-item span{font-size:11px;color:var(--text2);transition:all .25s ease;line-height:1}
+.tab-item.active svg{fill:var(--blue);transform:scale(1.08)}
+.tab-item.active span{color:var(--blue);font-weight:600}
+.tab-item:active{background:rgba(0,0,0,.04)}
+
+/* ===== Shared Components ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:14px;font-weight:500;transition:all .15s;-webkit-user-select:none;user-select:none}
+.btn:active{transform:scale(.96);opacity:.8}
+.btn-primary{background:var(--blue);color:#fff;padding:8px 16px}
+.btn-sm{padding:6px 12px;font-size:12px;border-radius:8px}
+.btn-icon{width:32px;height:32px;border-radius:50%;background:var(--blue);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;flex-shrink:0}
+.btn-icon:active{transform:scale(.9);opacity:.8}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin:0 12px 10px}
+.section-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;padding:12px 16px 6px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:100;display:none;align-items:center;justify-content:center;padding:24px}
+.modal-overlay.show{display:flex}
+.modal-box{background:var(--card);border-radius:16px;width:100%;max-width:340px;overflow:hidden;animation:modalIn .25s ease}
+@keyframes modalIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-header{padding:16px;text-align:center;font-size:17px;font-weight:600;border-bottom:1px solid var(--border)}
+.modal-body{padding:16px}
+.modal-body input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:15px;outline:none;transition:border .2s}
+.modal-body input:focus{border-color:var(--blue)}
+.modal-footer{display:flex;border-top:1px solid var(--border)}
+.modal-footer .btn{flex:1;padding:14px;border-radius:0;background:none;font-size:16px}
+.modal-footer .btn:first-child{border-right:1px solid var(--border);color:var(--blue)}
+.modal-footer .btn:last-child{font-weight:600;color:var(--blue)}
+.modal-footer .btn:active{background:var(--blue-light)}
+
+/* Color Picker */
+.color-picker{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;justify-content:center}
+.color-swatch{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .2s;position:relative}
+.color-swatch:active{transform:scale(.9)}
+.color-swatch.selected{border-color:var(--text);box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--text)}
+.color-swatch.selected::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.3)}
+.custom-color-wrap{display:flex;align-items:center;gap:6px}
+.custom-color-input{width:32px;height:32px;border-radius:50%;border:none;cursor:pointer;background:none;padding:0;overflow:hidden}
+.custom-color-input::-webkit-color-swatch-wrapper{padding:0}
+.custom-color-input::-webkit-color-swatch{border-radius:50%;border:2px dashed var(--border)}
+
+/* ===== Page A: Week View ===== */
+.week-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;flex-shrink:0}
+.week-header h2{font-size:18px;font-weight:700}
+.week-nav{display:flex;gap:8px}
+.week-nav button{width:30px;height:30px;border-radius:50%;border:none;background:var(--blue-light);color:var(--blue);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.week-nav button:active{transform:scale(.9)}
+.week-body{flex:1;display:flex;gap:8px;padding:0 8px;overflow:hidden;min-height:0}
+.week-left{flex:0 0 58%;display:flex;flex-direction:column;gap:3px;overflow-y:auto}
+.week-right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow)}
+.day-cell{background:var(--card);border-radius:var(--radius-sm);padding:6px 8px;flex:1;min-height:0;transition:all .2s;border:2px solid transparent;display:flex;flex-direction:column}
+.day-cell.drag-over{background:var(--blue-light);border-color:var(--blue);transform:scale(1.02)}
+.day-cell-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;flex-shrink:0}
+.day-cell-header .weekday-label{font-size:13px;font-weight:600;color:var(--text)}
+.day-cell-header .date-label{font-size:11px;color:var(--text2);font-weight:400}
+.day-cell-header .today-badge{background:var(--blue);color:#fff;font-size:9px;padding:1px 5px;border-radius:4px;margin-left:4px}
+.day-cell .todo-tags{display:flex;flex-wrap:wrap;gap:3px;overflow:hidden;flex:1;min-height:0;align-content:flex-start}
+.todo-tag{font-size:10px;padding:2px 6px;border-radius:5px;color:#fff;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:all .2s;-webkit-user-select:none;user-select:none;display:inline-block}
+.todo-tag:active{transform:scale(.95)}
+.todo-tag.done{text-decoration:line-through;opacity:.55}
+
+.panel-title{padding:10px 12px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.category-group{border-bottom:1px solid var(--border)}
+.category-header{display:flex;align-items:center;padding:8px 12px;cursor:pointer;gap:8px;-webkit-user-select:none;user-select:none}
+.category-header .arrow{transition:transform .2s;font-size:10px;color:var(--text2)}
+.category-header .arrow.collapsed{transform:rotate(-90deg)}
+.category-header .cat-name{font-size:13px;font-weight:600;flex:1}
+.category-header .cat-count{font-size:11px;color:var(--text2);background:var(--bg);padding:1px 6px;border-radius:4px}
+.category-todos{padding:0 12px 6px}
+.category-todos.hidden{display:none}
+.todo-item-r{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:grab;-webkit-user-select:none;user-select:none}
+.todo-item-r:active{cursor:grabbing}
+.todo-item-r .todo-title{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.todo-item-r .todo-title.done{text-decoration:line-through;color:var(--text2)}
+
+/* ===== Page B: Month View ===== */
+.month-header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;flex-shrink:0}
+.month-header .month-title-group{display:flex;align-items:baseline;gap:6px}
+.month-header .month-title-main{font-size:28px;font-weight:800;letter-spacing:1px;color:var(--text)}
+.month-header .month-title-sub{font-size:13px;font-weight:500;color:var(--text2)}
+.month-nav{display:flex;gap:8px}
+.month-nav button{width:30px;height:30px;border-radius:50%;border:none;background:var(--blue-light);color:var(--blue);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.month-nav button:active{transform:scale(.9)}
+.month-grid-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:0 8px;min-height:0}
+.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;flex:1;min-height:0}
+.month-weekday{text-align:center;font-size:11px;color:var(--text2);padding:2px 0;font-weight:600}
+.month-day{background:var(--card);border-radius:6px;padding:3px;cursor:pointer;transition:all .15s;position:relative;display:flex;flex-direction:column;overflow:hidden}
+.month-day:active{background:var(--blue-light)}
+.month-day.other-month{opacity:.3}
+.month-day.today{box-shadow:inset 0 0 0 2px var(--blue)}
+.month-day.selected{background:var(--blue);color:#fff}
+.month-day .day-num{font-size:11px;font-weight:600}
+.month-day.selected .day-num{color:#fff}
+.month-day .mini-todos{flex:1;display:flex;flex-direction:column;gap:1px;margin-top:1px;overflow:hidden}
+.month-day .mini-tag{font-size:8px;padding:1px 3px;border-radius:2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
+.month-day.selected .mini-tag{background:rgba(255,255,255,.3)!important;color:rgba(255,255,255,.9)}
+.month-day .more-badge{position:absolute;bottom:2px;right:2px;font-size:8px;background:var(--blue);color:#fff;padding:0 3px;border-radius:3px}
+.month-day.selected .more-badge{background:rgba(255,255,255,.3)}
+.month-detail{flex-shrink:0;margin:0 12px 6px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 14px;display:none;max-height:110px;overflow-y:auto}
+.month-detail.show{display:block}
+.month-detail h3{font-size:13px;font-weight:600;margin-bottom:4px}
+.month-detail .detail-todo{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px solid var(--border)}
+.month-detail .detail-todo:last-child{border-bottom:none}
+.month-detail .done-icon{color:var(--success);font-size:14px}
+
+/* ===== Page C: Todo Library ===== */
+.lib-body{flex:1;display:flex;overflow:hidden;min-height:0}
+.lib-left{flex:0 0 35%;border-right:1px solid var(--border);overflow-y:auto;background:var(--card);display:flex;flex-direction:column}
+.lib-right{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.lib-cat-list-wrap{flex:1;overflow-y:auto}
+.lib-cat-item{display:flex;align-items:center;padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:all .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.lib-cat-item.active{background:var(--blue-light)}
+.lib-cat-item .cat-color{width:10px;height:10px;border-radius:50%;margin-right:10px;flex-shrink:0}
+.lib-cat-item .cat-label{font-size:14px;font-weight:500;flex:1}
+.lib-cat-item .cat-badge{font-size:11px;color:var(--text2);background:var(--bg);padding:1px 6px;border-radius:4px}
+.lib-cat-actions{position:absolute;right:0;top:0;bottom:0;display:flex;transform:translateX(100%);transition:transform .25s}
+.lib-cat-actions.show{transform:translateX(0)}
+.lib-cat-actions button{padding:0 14px;border:none;color:#fff;font-size:12px;cursor:pointer;font-weight:600}
+.lib-cat-actions .edit-btn{background:var(--blue)}
+.lib-cat-actions .del-btn{background:var(--danger)}
+.lib-add-cat-btn{padding:12px 14px;text-align:center;font-size:14px;color:var(--blue);cursor:pointer;font-weight:500;border-bottom:none;transition:background .15s;flex-shrink:0}
+.lib-add-cat-btn:active{background:var(--blue-light)}
+.lib-todo-list{padding:8px 12px;flex:1}
+.lib-todo-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border-radius:var(--radius-sm);margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.05);position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.lib-todo-item .todo-cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.lib-todo-item .todo-title{font-size:14px;flex:1}
+.lib-todo-item .todo-title.done{text-decoration:line-through;color:var(--text2)}
+.lib-todo-actions{position:absolute;right:0;top:0;bottom:0;display:flex;transform:translateX(100%);transition:transform .25s}
+.lib-todo-actions.show{transform:translateX(0)}
+.lib-todo-actions button{padding:0 16px;border:none;color:#fff;font-size:13px;cursor:pointer;font-weight:600}
+.lib-todo-actions .edit-btn{background:var(--blue)}
+.lib-todo-actions .del-btn{background:var(--danger)}
+
+/* Inline add todo button & input card */
+.lib-add-btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 12px;margin:0 12px 8px;background:var(--card);border-radius:var(--radius-sm);box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;font-size:14px;color:var(--blue);font-weight:500;transition:all .15s;-webkit-user-select:none;user-select:none;border:1.5px dashed var(--border)}
+.lib-add-btn:active{background:var(--blue-light);transform:scale(.98)}
+.lib-inline-input-wrap{overflow:hidden;max-height:0;transition:max-height .3s ease,opacity .25s ease,margin .3s ease;opacity:0;margin:0 12px 0}
+.lib-inline-input-wrap.expanded{max-height:120px;opacity:1;margin:0 12px 8px}
+.lib-inline-input-card{background:var(--card);border-radius:var(--radius-sm);box-shadow:0 2px 10px rgba(0,0,0,.1);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.lib-inline-input-card input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none;transition:border .2s;font-family:inherit}
+.lib-inline-input-card input:focus{border-color:var(--blue)}
+.lib-inline-input-card .inline-actions{display:flex;gap:8px;justify-content:flex-end}
+.lib-inline-input-card .inline-actions .btn-cancel{padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s}
+.lib-inline-input-card .inline-actions .btn-cancel:active{background:var(--bg)}
+.lib-inline-input-card .inline-actions .btn-confirm{padding:5px 14px;border-radius:8px;border:none;background:var(--blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.lib-inline-input-card .inline-actions .btn-confirm:active{opacity:.8;transform:scale(.96)}
+
+/* Long press highlight */
+.longpress-highlight{animation:longpressPulse .6s ease}
+@keyframes longpressPulse{0%{background:inherit}50%{background:var(--blue-light)}100%{background:inherit}}
+
+/* ===== Page D: Diary ===== */
+.diary-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;flex-shrink:0}
+.diary-header h2{font-size:18px;font-weight:700}
+.diary-toggle{display:flex;background:var(--bg);border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.diary-toggle button{padding:6px 12px;border:none;background:none;font-size:12px;cursor:pointer;font-weight:500;color:var(--text2);transition:all .2s}
+.diary-toggle button.active{background:var(--blue);color:#fff}
+.diary-date-nav{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 16px;flex-shrink:0}
+.diary-date-nav button{width:28px;height:28px;border-radius:50%;border:none;background:var(--blue-light);color:var(--blue);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center}
+.diary-date-nav .current-date{font-size:15px;font-weight:600}
+.diary-content{flex:1;padding:0 12px 12px;overflow-y:auto}
+.diary-section{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:10px}
+.diary-section h3{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:8px}
+.diary-section textarea{width:100%;min-height:60px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-size:14px;resize:vertical;outline:none;font-family:inherit;transition:border .2s}
+.diary-section textarea:focus{border-color:var(--blue)}
+.diary-section .completed-list{list-style:none}
+.diary-section .completed-list li{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.diary-section .completed-list li:last-child{border-bottom:none}
+.diary-section .completed-list .check-icon{color:var(--success)}
+.monthly-view{padding:0 12px 12px;overflow-y:auto;flex:1;display:none}
+.monthly-item{background:var(--card);border-radius:var(--radius-sm);padding:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:all .15s}
+.monthly-item:active{background:var(--blue-light)}
+.monthly-item .mi-date{font-size:12px;color:var(--blue);font-weight:600;margin-bottom:4px}
+.monthly-item .mi-text{font-size:13px;color:var(--text);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar{width:0;height:0}
+
+/* ===== Toast ===== */
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* ===== Drag Ghost ===== */
+.drag-ghost{position:fixed;pointer-events:none;z-index:50;background:var(--card);border-radius:8px;padding:6px 12px;box-shadow:0 4px 16px rgba(0,0,0,.15);font-size:12px;opacity:.9;transform:rotate(2deg)}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Page A: Week View -->
+  <div id="pageA" class="page active">
+    <div class="week-header">
+      <h2 id="weekTitle">第1周</h2>
+      <div class="week-nav">
+        <button onclick="changeWeek(-1)">‹</button>
+        <button onclick="changeWeek(1)">›</button>
+      </div>
+    </div>
+    <div class="week-body">
+      <div class="week-left" id="weekDays"></div>
+      <div class="week-right">
+        <div class="panel-title">
+          <span>Todo 库</span>
+        </div>
+        <div id="weekPanel" style="overflow-y:auto;flex:1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page B: Month View -->
+  <div id="pageB" class="page">
+    <div class="month-header">
+      <div class="month-title-group">
+        <span class="month-title-main" id="monthTitleMain">JUL</span>
+        <span class="month-title-sub" id="monthTitleSub">2025</span>
+      </div>
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">‹</button>
+        <button onclick="changeMonth(1)">›</button>
+      </div>
+    </div>
+    <div class="month-grid-wrap">
+      <div class="month-grid" id="monthGrid"></div>
+    </div>
+    <div class="month-detail" id="monthDetail"></div>
+  </div>
+
+  <!-- Page C: Todo Library -->
+  <div id="pageC" class="page">
+    <div class="section-title" style="padding:14px 16px 8px;display:flex;align-items:center;justify-content:space-between">
+      <span>分类管理</span>
+    </div>
+    <div class="lib-body">
+      <div class="lib-left" id="libCatListWrap">
+        <div class="lib-cat-list-wrap" id="libCatList"></div>
+        <div class="lib-add-cat-btn" onclick="showAddCategoryModal()">+ 新增分类</div>
+      </div>
+      <div class="lib-right">
+        <div class="lib-todo-list" id="libTodoList"></div>
+        <div class="lib-inline-input-wrap" id="libInlineInputWrap">
+          <div class="lib-inline-input-card">
+            <input id="newTodoInput" placeholder="输入 Todo 内容..." onkeydown="if(event.key==='Enter')confirmInlineAdd()">
+            <div class="inline-actions">
+              <button class="btn-cancel" onclick="cancelInlineAdd()">取消</button>
+              <button class="btn-confirm" onclick="confirmInlineAdd()">确认</button>
+            </div>
+          </div>
+        </div>
+        <div class="lib-add-btn" id="libAddBtn" onclick="toggleInlineInput()">＋ 添加</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page D: Diary -->
+  <div id="pageD" class="page">
+    <div class="diary-header">
+      <h2>日记</h2>
+      <div class="diary-toggle">
+        <button class="active" onclick="switchDiaryView('daily')">日记</button>
+        <button onclick="switchDiaryView('monthly')">月记</button>
+      </div>
+    </div>
+    <div id="diaryDaily">
+      <div class="diary-date-nav">
+        <button onclick="changeDiaryDate(-1)">‹</button>
+        <span class="current-date" id="diaryDateLabel">今天</span>
+        <button onclick="changeDiaryDate(1)">›</button>
+      </div>
+      <div class="diary-content">
+        <div class="diary-section">
+          <h3>📝 今日小结</h3>
+          <textarea id="diarySummary" placeholder="用一句话总结今天..." oninput="saveDiary()"></textarea>
+        </div>
+        <div class="diary-section">
+          <h3>✅ 今日完成 Todo</h3>
+          <ul class="completed-list" id="diaryCompleted"></ul>
+        </div>
+        <div class="diary-section">
+          <h3>📋 备注</h3>
+          <textarea id="diaryNotes" placeholder="详细记录..." oninput="saveDiary()"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="monthly-view" id="diaryMonthly"></div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab-item active" onclick="switchTab('A')">
+      <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 4h5v5H7v-5z"/></svg>
+      <span>周视图</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('B')">
+      <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 4h2v2H7v-2zm0 3h2v2H7v-2zm3-3h2v2h-2v-2zm0 3h2v2h-2v-2zm3-3h2v2h-2v-2zm0 3h2v2h-2v-2zm3-3h2v2h-2v-2z"/></svg>
+      <span>月视图</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('C')">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4zm18-12v14a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2h16a2 2 0 012 2zm-2 0H4v14h16V4zM7 11l2 2 4-4-1.4-1.4L9 10.2 8.4 9.6 7 11z"/></svg>
+      <span>Todo库</span>
+    </div>
+    <div class="tab-item" onclick="switchTab('D')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 13h8v2H8v-2zm0 4h5v2H8v-2z"/></svg>
+      <span>日记</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-header" id="modalTitle">添加分类</div>
+    <div class="modal-body">
+      <input id="modalInput" placeholder="请输入名称">
+      <div id="modalColorPicker" class="color-picker" style="display:none"></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeModal()">取消</button>
+      <button id="modalConfirm" onclick="confirmModal()">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Data Store =====
+const STORAGE_KEY = 'scheduleApp_v3';
+let store = {
+  categories: [],
+  todos: [],
+  assignments: {},
+  diary: {},
+  completedLog: {}
+};
+
+const PRESET_COLORS = ['#4DB8E8','#66CC99','#FF9966','#FF6B9D','#AF52DE','#FF3B30','#007AFF','#5AC8FA','#FFCC00','#34C759'];
+const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
+function load() {
+  const d = localStorage.getItem(STORAGE_KEY);
+  if (d) { store = JSON.parse(d); return true; }
+  return false;
+}
+
+// ===== Init Default Data =====
+function initDefaults() {
+  const today = new Date();
+  const mon = getMonday(today);
+  const fmt = d => formatDate(d);
+
+  store.categories = [
+    { id: 'cat1', name: '日常事务', color: '#4DB8E8' },
+    { id: 'cat2', name: '工作任务', color: '#66CC99' },
+    { id: 'cat3', name: '学习计划', color: '#FF9966' }
+  ];
+
+  const wd = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(mon); d.setDate(d.getDate() + i); wd.push(fmt(d)); }
+
+  store.todos = [
+    { id: 't1', title: '整理房间', catId: 'cat1', done: true },
+    { id: 't2', title: '买菜做饭', catId: 'cat1', done: true },
+    { id: 't3', title: '取快递', catId: 'cat1', done: false },
+    { id: 't4', title: '回复邮件', catId: 'cat2', done: true },
+    { id: 't5', title: '写周报', catId: 'cat2', done: false },
+    { id: 't6', title: '准备会议材料', catId: 'cat2', done: false },
+    { id: 't7', title: '阅读30分钟', catId: 'cat3', done: true },
+    { id: 't8', title: '完成在线课程', catId: 'cat3', done: false },
+    { id: 't9', title: '练习英语口语', catId: 'cat3', done: false }
+  ];
+
+  store.assignments = {
+    [wd[0]]: ['t1', 't7'],
+    [wd[1]]: ['t4'],
+    [wd[2]]: ['t2', 't8'],
+    [wd[3]]: ['t5', 't6'],
+    [wd[4]]: ['t3'],
+    [wd[5]]: ['t9']
+  };
+
+  store.completedLog = {
+    [wd[0]]: ['t1', 't7'],
+    [wd[1]]: ['t4', 't2']
+  };
+
+  store.diary = {};
+  const yd = new Date(today); yd.setDate(yd.getDate() - 1);
+  store.diary[fmt(yd)] = { summary: '完成了邮件回复和在线课程的学习，感觉收获满满。', notes: '今天效率不错，明天继续保持。\n明天需要重点准备会议材料。' };
+  store.diary[fmt(today)] = { summary: '整理了房间，阅读了30分钟书籍。', notes: '' };
+
+  save();
+}
+
+// ===== Utilities =====
+function uid() { return 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5); }
+function formatDate(d) { const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+function getMonday(d) { const dt = new Date(d); const day = dt.getDay() || 7; dt.setDate(dt.getDate() - day + 1); dt.setHours(0,0,0,0); return dt; }
+function getWeekNum(d) { const oneJan = new Date(d.getFullYear(), 0, 1); return Math.ceil(((d - oneJan) / 86400000 + oneJan.getDay() + 1) / 7); }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800); }
+const WEEKDAYS = ['一','二','三','四','五','六','日'];
+
+function getCatColor(catId) {
+  const cat = store.categories.find(c => c.id === catId);
+  return cat ? cat.color : '#8E8E93';
+}
+
+// ===== Tab Switching =====
+function switchTab(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.getElementById('page' + id).classList.add('active');
+  document.querySelectorAll('.tab-item')[{A:0,B:1,C:2,D:3}[id]].classList.add('active');
+  if (id === 'A') renderWeekView();
+  else if (id === 'B') renderMonthView();
+  else if (id === 'C') renderLibView();
+  else if (id === 'D') renderDiary();
+}
+
+// ===== Modal with Color Picker =====
+let modalCallback = null;
+let selectedColor = PRESET_COLORS[0];
+
+function showModal(title, placeholder, cb, options = {}) {
+  document.getElementById('modalTitle').textContent = title;
+  const inp = document.getElementById('modalInput');
+  inp.placeholder = placeholder || '请输入名称';
+  inp.value = options.value || '';
+  modalCallback = cb;
+
+  const colorPicker = document.getElementById('modalColorPicker');
+  if (options.showColorPicker) {
+    selectedColor = options.initialColor || PRESET_COLORS[0];
+    renderColorPicker(colorPicker, selectedColor);
+    colorPicker.style.display = 'flex';
+  } else {
+    colorPicker.style.display = 'none';
+  }
+
+  document.getElementById('modal').classList.add('show');
+  setTimeout(() => inp.focus(), 100);
+}
+
+function renderColorPicker(container, currentColor) {
+  let html = '';
+  PRESET_COLORS.forEach(c => {
+    const sel = c === currentColor ? ' selected' : '';
+    html += `<div class="color-swatch${sel}" style="background:${c}" data-color="${c}" onclick="selectColor(this,'${c}')"></div>`;
+  });
+  html += `<div class="custom-color-wrap">
+    <input type="color" class="custom-color-input" value="${currentColor}" onchange="selectColorFromCustom(this.value)" title="自定义颜色">
+  </div>`;
+  container.innerHTML = html;
+}
+
+function selectColor(el, color) {
+  selectedColor = color;
+  document.querySelectorAll('#modalColorPicker .color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectColorFromCustom(color) {
+  selectedColor = color;
+  document.querySelectorAll('#modalColorPicker .color-swatch').forEach(s => s.classList.remove('selected'));
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('show'); modalCallback = null; }
+function confirmModal() {
+  const v = document.getElementById('modalInput').value.trim();
+  if (v && modalCallback) {
+    const colorPicker = document.getElementById('modalColorPicker');
+    if (colorPicker.style.display !== 'none') {
+      modalCallback(v, selectedColor);
+    } else {
+      modalCallback(v);
+    }
+  }
+  closeModal();
+}
+
+// ===== Page A: Week View =====
+let currentWeekOffset = 0;
+function getWeekStart() { const d = getMonday(new Date()); d.setDate(d.getDate() + currentWeekOffset * 7); return d; }
+
+function changeWeek(dir) { currentWeekOffset += dir; renderWeekView(); }
+
+function renderWeekView() {
+  const ws = getWeekStart();
+  const we = new Date(ws); we.setDate(we.getDate() + 6);
+  const wn = getWeekNum(ws);
+  document.getElementById('weekTitle').textContent = `${wn}周 (${ws.getMonth()+1}/${ws.getDate()} - ${we.getMonth()+1}/${we.getDate()})`;
+
+  const container = document.getElementById('weekDays');
+  container.innerHTML = '';
+  const todayStr = formatDate(new Date());
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(ws); d.setDate(d.getDate() + i);
+    const ds = formatDate(d);
+    const assigned = store.assignments[ds] || [];
+    const isToday = ds === todayStr;
+    const weekLabel = '周' + WEEKDAYS[i];
+
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+    cell.dataset.date = ds;
+    cell.ondragover = e => { e.preventDefault(); cell.classList.add('drag-over'); };
+    cell.ondragleave = () => cell.classList.remove('drag-over');
+    cell.ondrop = e => { e.preventDefault(); cell.classList.remove('drag-over'); handleDrop(ds); };
+
+    let tagsHtml = '';
+    assigned.forEach(tid => {
+      const todo = store.todos.find(t => t.id === tid);
+      if (todo) {
+        const color = getCatColor(todo.catId);
+        const doneClass = todo.done ? ' done' : '';
+        tagsHtml += `<span class="todo-tag${doneClass}" style="background:${color}" data-tid="${tid}" onclick="event.stopPropagation();toggleTodo('${tid}')">${todo.title}</span>`;
+      }
+    });
+
+    cell.innerHTML = `
+      <div class="day-cell-header">
+        <span class="weekday-label">${weekLabel}${isToday ? '<span class="today-badge">今天</span>' : ''}</span>
+        <span class="date-label">${d.getMonth()+1}/${d.getDate()}</span>
+      </div>
+      <div class="todo-tags">${tagsHtml}</div>`;
+    container.appendChild(cell);
+  }
+
+  renderWeekPanel();
+}
+
+function renderWeekPanel() {
+  const panel = document.getElementById('weekPanel');
+  panel.innerHTML = '';
+  store.categories.forEach(cat => {
+    const todos = store.todos.filter(t => t.catId === cat.id);
+    const grp = document.createElement('div');
+    grp.className = 'category-group';
+    grp.innerHTML = `
+      <div class="category-header" onclick="this.querySelector('.arrow').classList.toggle('collapsed');this.nextElementSibling.classList.toggle('hidden')">
+        <span class="arrow">▼</span>
+        <span class="cat-name" style="color:${cat.color}">${cat.name}</span>
+        <span class="cat-count">${todos.length}</span>
+      </div>
+      <div class="category-todos">
+        ${todos.map(t => `
+          <div class="todo-item-r" draggable="true" data-tid="${t.id}"
+               ondragstart="handleDragStart(event,'${t.id}')">
+            <span class="todo-title ${t.done?'done':''}">${t.title}</span>
+          </div>`).join('')}
+      </div>`;
+    panel.appendChild(grp);
+  });
+}
+
+function handleDragStart(e, tid) {
+  e.dataTransfer.setData('text/plain', tid);
+  e.dataTransfer.effectAllowed = 'move';
+  const todo = store.todos.find(t => t.id === tid);
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  ghost.textContent = todo ? todo.title : '';
+  ghost.style.position = 'fixed';
+  ghost.style.top = '-100px';
+  document.body.appendChild(ghost);
+  e.dataTransfer.setDragImage(ghost, 0, 0);
+  setTimeout(() => ghost.remove(), 0);
+}
+
+function handleDrop(dateStr) {
+  const tid = event.dataTransfer.getData('text/plain');
+  if (!tid) return;
+  if (!store.assignments[dateStr]) store.assignments[dateStr] = [];
+  if (!store.assignments[dateStr].includes(tid)) {
+    store.assignments[dateStr].push(tid);
+    save();
+    showToast('已添加到日程');
+  }
+  renderWeekView();
+}
+
+function toggleTodo(tid) {
+  const todo = store.todos.find(t => t.id === tid);
+  if (!todo) return;
+  todo.done = !todo.done;
+  if (todo.done) {
+    const todayStr = formatDate(new Date());
+    if (!store.completedLog[todayStr]) store.completedLog[todayStr] = [];
+    if (!store.completedLog[todayStr].includes(tid)) store.completedLog[todayStr].push(tid);
+  }
+  save();
+  renderCurrentPage();
+}
+
+// ===== Page B: Month View =====
+let currentMonthOffset = 0;
+let selectedMonthDay = null;
+
+function changeMonth(dir) { currentMonthOffset += dir; selectedMonthDay = null; renderMonthView(); }
+
+function renderMonthView() {
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth() + currentMonthOffset;
+  const d = new Date(year, month, 1);
+  const cy = d.getFullYear(), cm = d.getMonth();
+
+  // Update compact month header
+  document.getElementById('monthTitleMain').textContent = MONTH_NAMES[cm];
+  document.getElementById('monthTitleSub').textContent = cy;
+
+  const grid = document.getElementById('monthGrid');
+  grid.innerHTML = '';
+  WEEKDAYS.forEach(w => { const el = document.createElement('div'); el.className = 'month-weekday'; el.textContent = w; grid.appendChild(el); });
+
+  const firstDay = new Date(cy, cm, 1);
+  let startDay = firstDay.getDay() || 7;
+  const startDate = new Date(firstDay); startDate.setDate(startDate.getDate() - startDay + 1);
+  const todayStr = formatDate(new Date());
+
+  const totalDays = 42;
+
+  for (let i = 0; i < totalDays; i++) {
+    const cd = new Date(startDate); cd.setDate(cd.getDate() + i);
+    const ds = formatDate(cd);
+    const isOther = cd.getMonth() !== cm;
+    const isToday = ds === todayStr;
+    const isSelected = ds === selectedMonthDay;
+
+    const assignedIds = store.assignments[ds] || [];
+    const assignedTodos = assignedIds.map(id => store.todos.find(t => t.id === id)).filter(Boolean);
+
+    const cell = document.createElement('div');
+    cell.className = `month-day${isOther ? ' other-month' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}`;
+    cell.onclick = () => { selectedMonthDay = (selectedMonthDay === ds ? null : ds); renderMonthView(); };
+
+    let miniHtml = '';
+    if (assignedTodos.length > 0) {
+      miniHtml = '<div class="mini-todos">';
+      const show = assignedTodos.slice(0, 3);
+      show.forEach(t => {
+        const color = getCatColor(t.catId);
+        miniHtml += `<span class="mini-tag" style="background:${color}">${t.title}</span>`;
+      });
+      miniHtml += '</div>';
+    }
+
+    const moreBadge = assignedTodos.length > 3 ? `<span class="more-badge">+${assignedTodos.length - 3}</span>` : '';
+
+    cell.innerHTML = `<div class="day-num">${cd.getDate()}</div>${miniHtml}${moreBadge}`;
+    grid.appendChild(cell);
+  }
+
+  const detail = document.getElementById('monthDetail');
+  if (selectedMonthDay) {
+    const assignedIds = store.assignments[selectedMonthDay] || [];
+    const assignedTodos = assignedIds.map(id => store.todos.find(t => t.id === id)).filter(Boolean);
+    const sd = new Date(selectedMonthDay);
+    let detailHtml = `<h3>${sd.getMonth()+1}月${sd.getDate()}日 日程 (${assignedTodos.length})</h3>`;
+    if (assignedTodos.length) {
+      detailHtml += assignedTodos.map(t => {
+        const color = getCatColor(t.catId);
+        const doneStyle = t.done ? 'text-decoration:line-through;opacity:0.6;' : '';
+        return `<div class="detail-todo"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span><span style="${doneStyle}">${t.title}</span></div>`;
+      }).join('');
+    } else {
+      detailHtml += '<div style="font-size:12px;color:var(--text2);padding:4px 0">暂无日程安排</div>';
+    }
+    detail.innerHTML = detailHtml;
+    detail.classList.add('show');
+  } else {
+    detail.classList.remove('show');
+  }
+}
+
+// ===== Page C: Todo Library =====
+let libSelectedCat = null;
+let libSwipeTarget = null;
+let inlineInputOpen = false;
+
+// Long press handling
+let longPressTimer = null;
+let longPressTriggered = false;
+
+function renderLibView() {
+  const catList = document.getElementById('libCatList');
+  catList.innerHTML = '';
+  if (!libSelectedCat && store.categories.length) libSelectedCat = store.categories[0].id;
+
+  store.categories.forEach(cat => {
+    const count = store.todos.filter(t => t.catId === cat.id).length;
+    const el = document.createElement('div');
+    el.className = `lib-cat-item${cat.id === libSelectedCat ? ' active' : ''}`;
+    el.innerHTML = `
+      <div class="cat-color" style="background:${cat.color}"></div>
+      <span class="cat-label">${cat.name}</span>
+      <span class="cat-badge">${count}</span>
+      <div class="lib-cat-actions">
+        <button class="edit-btn" onclick="event.stopPropagation();showEditCategoryModal('${cat.id}')">编辑</button>
+        <button class="del-btn" onclick="event.stopPropagation();deleteCategory('${cat.id}')">删除</button>
+      </div>`;
+    el.onclick = () => { libSelectedCat = cat.id; renderLibView(); };
+
+    // Swipe to reveal actions
+    let touchStartX = 0;
+    el.ontouchstart = e => { touchStartX = e.touches[0].clientX; };
+    el.ontouchmove = e => {
+      const dx = touchStartX - e.touches[0].clientX;
+      if (dx > 40) el.querySelector('.lib-cat-actions').classList.add('show');
+      else if (dx < -20) el.querySelector('.lib-cat-actions').classList.remove('show');
+    };
+    el.ontouchend = () => {};
+
+    // Long press to edit
+    let lpTimer = null;
+    el.addEventListener('mousedown', function(e) {
+      longPressTriggered = false;
+      lpTimer = setTimeout(() => {
+        longPressTriggered = true;
+        el.classList.add('longpress-highlight');
+        setTimeout(() => el.classList.remove('longpress-highlight'), 300);
+        showEditCategoryModal(cat.id);
+      }, 600);
+    });
+    el.addEventListener('mouseup', () => { clearTimeout(lpTimer); });
+    el.addEventListener('mouseleave', () => { clearTimeout(lpTimer); });
+    el.addEventListener('touchstart', function(e) {
+      longPressTriggered = false;
+      lpTimer = setTimeout(() => {
+        longPressTriggered = true;
+        el.classList.add('longpress-highlight');
+        setTimeout(() => el.classList.remove('longpress-highlight'), 300);
+        showEditCategoryModal(cat.id);
+      }, 600);
+    }, {passive: true});
+    el.addEventListener('touchend', () => { clearTimeout(lpTimer); });
+    el.addEventListener('touchmove', () => { clearTimeout(lpTimer); });
+
+    catList.appendChild(el);
+  });
+
+  renderLibTodos();
+}
+
+function renderLibTodos() {
+  const list = document.getElementById('libTodoList');
+  list.innerHTML = '';
+  if (!libSelectedCat) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">请选择一个分类</div>'; return; }
+
+  const todos = store.todos.filter(t => t.catId === libSelectedCat);
+  if (!todos.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">暂无 Todo<br>点击下方添加 ✨</div>'; return; }
+
+  todos.forEach(t => {
+    const color = getCatColor(t.catId);
+    const el = document.createElement('div');
+    el.className = 'lib-todo-item';
+    el.innerHTML = `
+      <div class="todo-cat-dot" style="background:${color}"></div>
+      <span class="todo-title ${t.done?'done':''}">${t.title}</span>
+      <div class="lib-todo-actions">
+        <button class="edit-btn" onclick="event.stopPropagation();showEditTodoModal('${t.id}')">编辑</button>
+        <button class="del-btn" onclick="event.stopPropagation();deleteTodo('${t.id}')">删除</button>
+      </div>`;
+
+    // Click on todo item to toggle done
+    el.onclick = () => { toggleTodo(t.id); };
+
+    let touchStartX = 0;
+    el.ontouchstart = e => { touchStartX = e.touches[0].clientX; };
+    el.ontouchmove = e => {
+      const dx = touchStartX - e.touches[0].clientX;
+      if (dx > 40) el.querySelector('.lib-todo-actions').classList.add('show');
+      else if (dx < -20) el.querySelector('.lib-todo-actions').classList.remove('show');
+    };
+
+    list.appendChild(el);
+  });
+}
+
+// ===== Inline input for adding todos =====
+function toggleInlineInput() {
+  const wrap = document.getElementById('libInlineInputWrap');
+  if (!libSelectedCat) { showToast('请先选择一个分类'); return; }
+  inlineInputOpen = !inlineInputOpen;
+  if (inlineInputOpen) {
+    wrap.classList.add('expanded');
+    setTimeout(() => { document.getElementById('newTodoInput').focus(); }, 300);
+  } else {
+    wrap.classList.remove('expanded');
+    document.getElementById('newTodoInput').value = '';
+  }
+}
+
+function confirmInlineAdd() {
+  const inp = document.getElementById('newTodoInput');
+  const title = inp.value.trim();
+  if (!title || !libSelectedCat) return;
+  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false });
+  save();
+  inp.value = '';
+  // Keep the input open for continuous adding
+  renderLibTodos();
+  showToast('已添加 Todo');
+  // Re-focus input after render
+  setTimeout(() => { document.getElementById('newTodoInput').focus(); }, 50);
+}
+
+function cancelInlineAdd() {
+  const wrap = document.getElementById('libInlineInputWrap');
+  wrap.classList.remove('expanded');
+  document.getElementById('newTodoInput').value = '';
+  inlineInputOpen = false;
+}
+
+function showAddCategoryModal() {
+  showModal('新增分类', '分类名称', (name, color) => {
+    store.categories.push({ id: uid(), name, color: color || PRESET_COLORS[store.categories.length % PRESET_COLORS.length] });
+    save(); renderCurrentPage();
+    showToast('分类已添加');
+  }, { showColorPicker: true, initialColor: PRESET_COLORS[store.categories.length % PRESET_COLORS.length] });
+}
+
+function showEditCategoryModal(catId) {
+  const cat = store.categories.find(c => c.id === catId);
+  if (!cat) return;
+  showModal('编辑分类', '分类名称', (name, color) => {
+    cat.name = name;
+    cat.color = color || cat.color;
+    save(); renderCurrentPage();
+    showToast('分类已更新');
+  }, { showColorPicker: true, initialColor: cat.color, value: cat.name });
+}
+
+function deleteCategory(catId) {
+  if (!confirm('确定删除此分类及其所有 Todo？')) return;
+  store.categories = store.categories.filter(c => c.id !== catId);
+  store.todos = store.todos.filter(t => t.catId !== catId);
+  Object.keys(store.assignments).forEach(k => {
+    store.assignments[k] = store.assignments[k].filter(tid => {
+      const t = store.todos.find(x => x.id === tid);
+      return !!t;
+    });
+  });
+  if (libSelectedCat === catId) libSelectedCat = store.categories[0]?.id || null;
+  save(); renderCurrentPage();
+  showToast('分类已删除');
+}
+
+function showEditTodoModal(tid) {
+  const todo = store.todos.find(t => t.id === tid);
+  if (!todo) return;
+  showModal('编辑 Todo', 'Todo 内容', name => {
+    todo.title = name;
+    save(); renderLibTodos(); renderWeekPanel();
+    showToast('已更新');
+  });
+  document.getElementById('modalInput').value = todo.title;
+}
+
+function deleteTodo(tid) {
+  store.todos = store.todos.filter(t => t.id !== tid);
+  Object.keys(store.assignments).forEach(k => {
+    store.assignments[k] = store.assignments[k].filter(id => id !== tid);
+  });
+  Object.keys(store.completedLog).forEach(k => {
+    store.completedLog[k] = store.completedLog[k].filter(id => id !== tid);
+  });
+  save(); renderCurrentPage();
+  showToast('已删除');
+}
+
+// ===== Page D: Diary =====
+let diaryView = 'daily';
+let diaryDate = new Date();
+
+function switchDiaryView(view) {
+  diaryView = view;
+  document.querySelectorAll('.diary-toggle button').forEach((b, i) => b.classList.toggle('active', (i === 0 && view === 'daily') || (i === 1 && view === 'monthly')));
+  document.getElementById('diaryDaily').style.display = view === 'daily' ? '' : 'none';
+  document.getElementById('diaryMonthly').style.display = view === 'monthly' ? '' : 'none';
+  if (view === 'daily') renderDiary();
+  else renderMonthlyDiary();
+}
+
+function changeDiaryDate(dir) { diaryDate.setDate(diaryDate.getDate() + dir); renderDiary(); }
+
+function renderDiary() {
+  const ds = formatDate(diaryDate);
+  const today = formatDate(new Date());
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yds = formatDate(yesterday);
+
+  let label = `${diaryDate.getMonth()+1}月${diaryDate.getDate()}日`;
+  if (ds === today) label = '今天';
+  else if (ds === yds) label = '昨天';
+  document.getElementById('diaryDateLabel').textContent = label;
+
+  const entry = store.diary[ds] || {};
+  document.getElementById('diarySummary').value = entry.summary || '';
+  document.getElementById('diaryNotes').value = entry.notes || '';
+
+  const doneIds = store.completedLog[ds] || [];
+  const doneTodos = doneIds.map(id => store.todos.find(t => t.id === id)).filter(Boolean);
+  const list = document.getElementById('diaryCompleted');
+  list.innerHTML = doneTodos.length ? doneTodos.map(t => `<li><span class="check-icon">✓</span> ${t.title}</li>`).join('') : '<li style="color:var(--text2);font-size:13px">当天暂无完成的 Todo</li>';
+}
+
+function saveDiary() {
+  const ds = formatDate(diaryDate);
+  if (!store.diary[ds]) store.diary[ds] = {};
+  store.diary[ds].summary = document.getElementById('diarySummary').value;
+  store.diary[ds].notes = document.getElementById('diaryNotes').value;
+  save();
+}
+
+function renderMonthlyDiary() {
+  const container = document.getElementById('diaryMonthly');
+  const now = new Date();
+  const cy = now.getFullYear(), cm = now.getMonth();
+  const entries = [];
+
+  for (let d = 1; d <= 31; d++) {
+    const dt = new Date(cy, cm, d);
+    if (dt.getMonth() !== cm) break;
+    const ds = formatDate(dt);
+    if (store.diary[ds]?.summary) {
+      entries.push({ date: ds, day: d, summary: store.diary[ds].summary });
+    }
+  }
+
+  entries.reverse();
+  container.innerHTML = entries.length ? entries.map(e => `
+    <div class="monthly-item" onclick="jumpToDiary('${e.date}')">
+      <div class="mi-date">${cm+1}月${e.day}日</div>
+      <div class="mi-text">${e.summary}</div>
+    </div>`).join('') : '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">本月暂无日记 ✍️</div>';
+}
+
+function jumpToDiary(ds) {
+  diaryDate = new Date(ds + 'T00:00:00');
+  switchDiaryView('daily');
+}
+
+// ===== Render Current =====
+function renderCurrentPage() {
+  const active = document.querySelector('.page.active');
+  if (active.id === 'pageA') renderWeekView();
+  else if (active.id === 'pageB') renderMonthView();
+  else if (active.id === 'pageC') renderLibView();
+  else if (active.id === 'pageD') renderDiary();
+}
+
+// ===== Init =====
+if (!load()) initDefaults();
+renderWeekView();
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(function(reg) {
+        console.log('[PWA] Service Worker registered, scope: ' + reg.scope);
+        // 监听更新
+        reg.addEventListener('updatefound', function() {
+          var newWorker = reg.installing;
+          newWorker.addEventListener('statechange', function() {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[PWA] New content available, please refresh.');
+            }
+          });
+        });
+      })
+      .catch(function(err) {
+        console.warn('[PWA] Service Worker registration failed:', err);
+      });
+  });
+
+  // 页面重新可见时检查更新
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.getRegistration().then(function(reg) {
+        if (reg) reg.update();
+      });
+    }
+  });
+}
+</script>
+</body>
+</html>
