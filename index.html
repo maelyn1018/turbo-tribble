@@ -123,6 +123,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .week-drag-ghost{position:fixed;z-index:999;pointer-events:none;padding:4px 10px;border-radius:8px;color:#fff;font-size:11px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,0.25);transform:translate(-50%,-120%) scale(1.05)}
 .day-cell.drop-target{background:rgba(0,122,255,0.08);outline:2px dashed var(--blue);outline-offset:-2px;border-radius:14px}
 #weekPanel.pool-drop-target{background:rgba(0,122,255,0.06);outline:2px dashed var(--blue);outline-offset:-2px;border-radius:12px;transition:background .15s}
+.remove-zone{position:fixed;bottom:-70px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:380px;height:56px;background:rgba(255,59,48,0.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:2px dashed #FF3B30;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:center;gap:8px;color:#FF3B30;font-size:14px;font-weight:600;z-index:100;transition:bottom .3s cubic-bezier(.22,.1,.24,1),background .15s;pointer-events:none}
+.remove-zone.active{bottom:0;pointer-events:auto}
+.remove-zone.hover{background:rgba(255,59,48,0.28);border-color:#FF2D20}
+.remove-zone svg{width:20px;height:20px;flex-shrink:0}
 
 .panel-title{padding:12px 14px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .category-group{border-bottom:1px solid var(--border)}
@@ -470,6 +474,15 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
       <span>日记</span>
     </div>
   </div>
+
+  <!-- Remove Zone (drag-to-remove) -->
+  <div class="remove-zone" id="removeZone" ondragover="event.preventDefault();this.classList.add('hover')" ondragleave="this.classList.remove('hover')" ondrop="event.preventDefault();this.classList.remove('hover');handleRemoveZoneDesktopDrop(event)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+      <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+    </svg>
+    <span>拖到此处移除日程</span>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -532,6 +545,9 @@ let store = {
 };
 
 const PRESET_COLORS = ['#4DB8E8','#66CC99','#FF9966','#FF6B9D','#AF52DE','#FF3B30','#007AFF','#5AC8FA','#FFCC00','#34C759'];
+const DRAFT_CAT_ID = 'cat_draft';
+const DRAFT_CAT_NAME = '日程草稿箱';
+const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); cloudSync.push(); }
@@ -539,6 +555,13 @@ function load() {
   const d = localStorage.getItem(STORAGE_KEY);
   if (d) { store = JSON.parse(d); return true; }
   return false;
+}
+
+function ensureDraftCategory() {
+  if (!store.categories.find(c => c.id === DRAFT_CAT_ID)) {
+    store.categories.push({ id: DRAFT_CAT_ID, name: DRAFT_CAT_NAME, color: DRAFT_CAT_COLOR });
+    save();
+  }
 }
 
 // ===== Cloud Sync (GitHub) =====
@@ -935,7 +958,7 @@ function renderWeekView() {
       if (todo) {
         const color = getCatColor(todo.catId);
         const doneClass = todo.done ? ' done' : '';
-        tagsHtml += `<span class="todo-tag${doneClass}" data-tid="${tid}" data-date="${ds}" data-idx="${idx}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain',JSON.stringify({tid:'${tid}',srcDate:'${ds}'}));event.dataTransfer.effectAllowed='move'" onclick="event.stopPropagation();toggleTodo('${tid}')"><span class="dot" style="background:${color}"></span>${todo.title}</span>`;
+        tagsHtml += `<span class="todo-tag${doneClass}" data-tid="${tid}" data-date="${ds}" data-idx="${idx}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain',JSON.stringify({tid:'${tid}',srcDate:'${ds}'}));event.dataTransfer.effectAllowed='move';showRemoveZone()" ondragend="hideRemoveZone()" onclick="event.stopPropagation();toggleTodo('${tid}')"><span class="dot" style="background:${color}"></span>${todo.title}</span>`;
       }
     });
 
@@ -953,7 +976,63 @@ function renderWeekView() {
 }
 
 // ===== 左侧 Todo 触摸拖拽 =====
-let weekDrag = { active: false, timer: null, tid: null, srcDate: null, startX: 0, startY: 0, ghost: null, insertTarget: null, insertBefore: null, returnToPool: false };
+let weekDrag = { active: false, timer: null, tid: null, srcDate: null, startX: 0, startY: 0, ghost: null, insertTarget: null, insertBefore: null, returnToPool: false, removeToDraft: false };
+
+// ===== Remove Zone Helpers =====
+function isOverRemoveZone(x, y) {
+  const rz = document.getElementById('removeZone');
+  if (!rz) return false;
+  const r = rz.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+function showRemoveZone() { document.getElementById('removeZone')?.classList.add('active'); }
+function hideRemoveZone() {
+  const rz = document.getElementById('removeZone');
+  if (rz) { rz.classList.remove('active', 'hover'); }
+}
+function removeFromScheduleToDraft(tid, srcDate) {
+  // Remove from assignments
+  if (srcDate && store.assignments[srcDate]) {
+    store.assignments[srcDate] = store.assignments[srcDate].filter(id => id !== tid);
+    if (store.assignments[srcDate].length === 0) delete store.assignments[srcDate];
+  }
+  // Move to draft category
+  const todo = store.todos.find(t => t.id === tid);
+  if (todo) { todo.catId = DRAFT_CAT_ID; todo.done = false; }
+  save();
+  renderWeekView();
+  showToast('已移至草稿箱');
+}
+
+function handleRemoveZoneDesktopDrop(e) {
+  const raw = e.dataTransfer.getData('text/plain');
+  if (!raw) return;
+  let tid, srcDate;
+  try {
+    const parsed = JSON.parse(raw);
+    tid = parsed.tid;
+    srcDate = parsed.srcDate;
+  } catch(err) {
+    tid = raw; // from right side drag, only tid
+  }
+  if (!tid) return;
+  // Remove from all assignments
+  if (srcDate && store.assignments[srcDate]) {
+    store.assignments[srcDate] = store.assignments[srcDate].filter(id => id !== tid);
+    if (store.assignments[srcDate].length === 0) delete store.assignments[srcDate];
+  } else {
+    // From right side: remove from all assignments
+    Object.keys(store.assignments).forEach(k => {
+      store.assignments[k] = store.assignments[k].filter(id => id !== tid);
+      if (store.assignments[k].length === 0) delete store.assignments[k];
+    });
+  }
+  const todo = store.todos.find(t => t.id === tid);
+  if (todo) { todo.catId = DRAFT_CAT_ID; todo.done = false; }
+  save();
+  renderWeekView();
+  showToast('已移至草稿箱');
+}
 
 function initWeekTagDrag() {
   const container = document.getElementById('weekDays');
@@ -1007,6 +1086,7 @@ function initWeekTagDrag() {
       weekDrag.ghost = ghost;
       
       if (navigator.vibrate) navigator.vibrate(30);
+      showRemoveZone();
     }, 350);
   }, { passive: true });
   
@@ -1036,7 +1116,13 @@ function initWeekTagDrag() {
     document.querySelectorAll('#weekDays .day-cell.drop-target').forEach(c => c.classList.remove('drop-target'));
     document.querySelectorAll('#weekDays .todo-tag.drag-insert-before').forEach(t => t.classList.remove('drag-insert-before'));
     
-    if (targetCell) {
+    // 检测是否在移除区域
+    const overRemove = isOverRemoveZone(touch.clientX, touch.clientY);
+    const rz = document.getElementById('removeZone');
+    if (overRemove) { rz?.classList.add('hover'); weekDrag.removeToDraft = true; }
+    else { rz?.classList.remove('hover'); weekDrag.removeToDraft = false; }
+    
+    if (targetCell && !overRemove) {
       targetCell.classList.add('drop-target');
       weekDrag.returnToPool = false;
       const panel = document.getElementById('weekPanel');
@@ -1083,17 +1169,22 @@ function initWeekTagDrag() {
     } else {
       weekDrag.insertTarget = null;
       weekDrag.insertBefore = null;
-      // 检测是否拖到右侧待办池区域
-      const panel = document.getElementById('weekPanel');
-      if (panel) {
-        const pr = panel.getBoundingClientRect();
-        if (touch.clientX >= pr.left && touch.clientX <= pr.right && touch.clientY >= pr.top && touch.clientY <= pr.bottom) {
-          weekDrag.returnToPool = true;
-          panel.classList.add('pool-drop-target');
-        } else {
-          weekDrag.returnToPool = false;
-          panel.classList.remove('pool-drop-target');
+      if (!overRemove) {
+        // 检测是否拖到右侧待办池区域
+        const panel = document.getElementById('weekPanel');
+        if (panel) {
+          const pr = panel.getBoundingClientRect();
+          if (touch.clientX >= pr.left && touch.clientX <= pr.right && touch.clientY >= pr.top && touch.clientY <= pr.bottom) {
+            weekDrag.returnToPool = true;
+            panel.classList.add('pool-drop-target');
+          } else {
+            weekDrag.returnToPool = false;
+            panel.classList.remove('pool-drop-target');
+          }
         }
+      } else {
+        const panel = document.getElementById('weekPanel');
+        if (panel) panel.classList.remove('pool-drop-target');
       }
     }
   }, { passive: false });
@@ -1112,12 +1203,16 @@ function initWeekTagDrag() {
     const beforeTid = weekDrag.insertBefore;
     
     const returnToPool = weekDrag.returnToPool;
+    const removeToDraft = weekDrag.removeToDraft;
     
     // 先清理视觉状态
     cleanupDrag();
+    hideRemoveZone();
     
     // 执行移动
-    if (returnToPool) {
+    if (removeToDraft) {
+      removeFromScheduleToDraft(tid, srcDate);
+    } else if (returnToPool) {
       // 拖回右侧待办池：从当天移除分配
       if (srcDate && store.assignments[srcDate]) {
         store.assignments[srcDate] = store.assignments[srcDate].filter(id => id !== tid);
@@ -1134,6 +1229,7 @@ function initWeekTagDrag() {
   newContainer.addEventListener('touchcancel', function() {
     clearTimeout(weekDrag.timer);
     cleanupDrag();
+    hideRemoveZone();
   }, { passive: true });
 
   // ===== 长按日期卡片新建日程 =====
@@ -1247,7 +1343,7 @@ function renderWeekPanel() {
       <div class="category-todos">
         ${todos.map(t => {
           const cls = 'todo-item-r' + (t.done ? ' done-item' : '');
-          return `<div class="${cls}" draggable="true" ondragstart="handleDragStart(event,'${t.id}')" onclick="toggleTodo('${t.id}')" data-tid="${t.id}">
+          return `<div class="${cls}" draggable="true" ondragstart="handleDragStart(event,'${t.id}')" ondragend="hideRemoveZone()" onclick="toggleTodo('${t.id}')" data-tid="${t.id}">
             <span class="todo-dot"></span><span class="todo-title ${t.done?'done':''}">${t.title}</span>
           </div>`;
         }).join('')}
@@ -1283,6 +1379,7 @@ function renderWeekPanel() {
       poolDrag.ghost = ghost;
       
       if (navigator.vibrate) navigator.vibrate(30);
+      showRemoveZone();
     }, 350);
   }, { passive: true });
   } // end panel._poolDragBound
@@ -1291,6 +1388,7 @@ function renderWeekPanel() {
 // Document 级别的 touchmove/end/cancel，支持从右侧拖到左侧（只绑定一次）
 if (!_poolDragDocBound) {
 _poolDragDocBound = true;
+let _poolRemoveToDraft = false;
 
 document.addEventListener('touchmove', function(e) {
   if (!poolDrag.active) {
@@ -1308,10 +1406,19 @@ document.addEventListener('touchmove', function(e) {
     poolDrag.ghost.style.top = (touch.clientY - 20) + 'px';
   }
   document.querySelectorAll('#weekDays .day-cell.drop-target').forEach(c => c.classList.remove('drop-target'));
-  const el = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (el) {
-    const cell = el.closest('.day-cell');
-    if (cell) cell.classList.add('drop-target');
+  
+  // 检测是否在移除区域
+  const overRemove = isOverRemoveZone(touch.clientX, touch.clientY);
+  const rz = document.getElementById('removeZone');
+  if (overRemove) { rz?.classList.add('hover'); _poolRemoveToDraft = true; }
+  else { rz?.classList.remove('hover'); _poolRemoveToDraft = false; }
+  
+  if (!overRemove) {
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (el) {
+      const cell = el.closest('.day-cell');
+      if (cell) cell.classList.add('drop-target');
+    }
   }
 }, { passive: false });
 
@@ -1322,17 +1429,32 @@ document.addEventListener('touchend', function(e) {
   const touch = e.changedTouches[0];
   document.querySelectorAll('#weekDays .day-cell.drop-target').forEach(c => c.classList.remove('drop-target'));
   
-  const el = document.elementFromPoint(touch.clientX, touch.clientY);
-  if (el) {
-    const cell = el.closest('.day-cell');
-    if (cell) {
-      const targetDate = cell.dataset.date;
-      if (targetDate && poolDrag.tid) {
-        if (!store.assignments[targetDate]) store.assignments[targetDate] = [];
-        if (!store.assignments[targetDate].includes(poolDrag.tid)) {
-          store.assignments[targetDate].push(poolDrag.tid);
-          save();
-          showToast('已安排');
+  if (_poolRemoveToDraft) {
+    // 拖到移除区域：将日程移入草稿箱
+    const tid = poolDrag.tid;
+    // 从所有 assignments 中移除
+    Object.keys(store.assignments).forEach(k => {
+      store.assignments[k] = store.assignments[k].filter(id => id !== tid);
+      if (store.assignments[k].length === 0) delete store.assignments[k];
+    });
+    // 移到草稿箱分类
+    const todo = store.todos.find(t => t.id === tid);
+    if (todo) { todo.catId = DRAFT_CAT_ID; todo.done = false; }
+    save();
+    showToast('已移至草稿箱');
+  } else {
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (el) {
+      const cell = el.closest('.day-cell');
+      if (cell) {
+        const targetDate = cell.dataset.date;
+        if (targetDate && poolDrag.tid) {
+          if (!store.assignments[targetDate]) store.assignments[targetDate] = [];
+          if (!store.assignments[targetDate].includes(poolDrag.tid)) {
+            store.assignments[targetDate].push(poolDrag.tid);
+            save();
+            showToast('已安排');
+          }
         }
       }
     }
@@ -1340,6 +1462,8 @@ document.addEventListener('touchend', function(e) {
   
   if (poolDrag.ghost) poolDrag.ghost.remove();
   if (poolDrag.srcEl) poolDrag.srcEl.style.opacity = '';
+  hideRemoveZone();
+  _poolRemoveToDraft = false;
   poolDrag = { active: false, timer: null, tid: null, startX: 0, startY: 0, ghost: null, srcEl: null };
   renderWeekView();
 }, { passive: true });
@@ -1348,6 +1472,8 @@ document.addEventListener('touchcancel', function() {
   clearTimeout(poolDrag.timer);
   if (poolDrag.ghost) poolDrag.ghost.remove();
   if (poolDrag.srcEl) poolDrag.srcEl.style.opacity = '';
+  hideRemoveZone();
+  _poolRemoveToDraft = false;
   poolDrag = { active: false, timer: null, tid: null, startX: 0, startY: 0, ghost: null, srcEl: null };
 }, { passive: true });
 
@@ -1365,6 +1491,7 @@ function handleDragStart(e, tid) {
   document.body.appendChild(ghost);
   e.dataTransfer.setDragImage(ghost, 0, 0);
   setTimeout(() => ghost.remove(), 0);
+  showRemoveZone();
 }
 
 function handleDrop(dateStr) {
@@ -1592,9 +1719,12 @@ let libLongPressTriggered = false;
 function renderLibView() {
   const catList = document.getElementById('libCatList');
   catList.innerHTML = '';
-  if (!libSelectedCat && store.categories.length) libSelectedCat = store.categories[0].id;
+  const normalCats = store.categories.filter(c => c.id !== DRAFT_CAT_ID);
+  const draftCat = store.categories.find(c => c.id === DRAFT_CAT_ID);
+  if (!libSelectedCat && normalCats.length) libSelectedCat = normalCats[0].id;
 
-  store.categories.forEach(cat => {
+  // Render normal categories (with edit/delete/swipe/longpress)
+  normalCats.forEach(cat => {
     const count = store.todos.filter(t => t.catId === cat.id).length;
     const el = document.createElement('div');
     el.className = `lib-cat-item${cat.id === libSelectedCat ? ' active' : ''}`;
@@ -1644,6 +1774,19 @@ function renderLibView() {
 
     catList.appendChild(el);
   });
+
+  // Render draft category at the end (fixed, no edit/delete)
+  if (draftCat) {
+    const count = store.todos.filter(t => t.catId === draftCat.id).length;
+    const el = document.createElement('div');
+    el.className = `lib-cat-item lib-cat-draft${draftCat.id === libSelectedCat ? ' active' : ''}`;
+    el.innerHTML = `
+      <div class="cat-color" style="background:${draftCat.color}"></div>
+      <span class="cat-label">${draftCat.name}</span>
+      <span class="cat-badge">${count}</span>`;
+    el.onclick = () => { libSelectedCat = draftCat.id; renderLibView(); };
+    catList.appendChild(el);
+  }
 
   renderLibTodos();
 }
@@ -1819,6 +1962,7 @@ function showEditCategoryModal(catId) {
 }
 
 function deleteCategory(catId) {
+  if (catId === DRAFT_CAT_ID) { showToast('草稿箱不可删除'); return; }
   if (!confirm('确定删除此分类及其所有 Todo？')) return;
   store.categories = store.categories.filter(c => c.id !== catId);
   store.todos = store.todos.filter(t => t.catId !== catId);
@@ -2249,6 +2393,7 @@ function renderCurrentPage() {
 
 // ===== Init =====
 if (!load()) initDefaults();
+ensureDraftCategory();
 renderWeekView();
 
 // ===== Keyboard Avoidance for Sheet Modal =====
@@ -2337,6 +2482,7 @@ renderWeekView();
 // Cloud sync: pull from GitHub on startup, then re-render
 cloudSync.pull().then(success => {
   if (success) {
+    ensureDraftCategory();
     renderCurrentPage();
   }
 });
