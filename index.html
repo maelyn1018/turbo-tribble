@@ -94,6 +94,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .week-left.slide-out-down{transform:translateY(100%);opacity:0}
 .week-left.slide-in-prepare-up{transform:translateY(100%);opacity:0;transition:none}
 .week-left.slide-in-prepare-down{transform:translateY(-100%);opacity:0;transition:none}
+.week-left.slide-out-left{transform:translateX(-100%);opacity:0}
+.week-left.slide-out-right{transform:translateX(100%);opacity:0}
+.week-left.slide-in-prepare-left{transform:translateX(100%);opacity:0;transition:none}
+.week-left.slide-in-prepare-right{transform:translateX(-100%);opacity:0;transition:none}
 .week-right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow)}
 .day-cell{background:var(--card);border-radius:14px;padding:8px 10px;flex-shrink:0;transition:all .2s;border:2px solid transparent;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 .day-cell.drag-over{background:var(--blue-light);border-color:var(--blue);transform:scale(1.02)}
@@ -818,16 +822,16 @@ function confirmModal() {
 
 // ===== Page A: Week View =====
 let currentWeekOffset = 0;
-let weekTouchStartY = 0;
-let weekTouchEndY = 0;
+let weekTouchStartX = 0;
+let weekTouchEndX = 0;
 
 function getWeekStart() { const d = getMonday(new Date()); d.setDate(d.getDate() + currentWeekOffset * 7); return d; }
 
 function changeWeek(dir) {
   const container = document.getElementById('weekDays');
   const title = document.getElementById('weekTitle');
-  // Slide out
-  container.classList.add(dir > 0 ? 'slide-out-up' : 'slide-out-down');
+  // Slide out horizontally
+  container.classList.add(dir > 0 ? 'slide-out-left' : 'slide-out-right');
   title.style.transition = 'opacity .08s ease';
   title.style.opacity = '0';
   setTimeout(() => {
@@ -835,9 +839,9 @@ function changeWeek(dir) {
     renderWeekView();
     // renderWeekView 会通过 cloneNode 替换容器，需重新获取
     const newContainer = document.getElementById('weekDays');
-    newContainer.classList.add(dir > 0 ? 'slide-in-prepare-up' : 'slide-in-prepare-down');
+    newContainer.classList.add(dir > 0 ? 'slide-in-prepare-left' : 'slide-in-prepare-right');
     void newContainer.offsetHeight;
-    newContainer.classList.remove('slide-in-prepare-up', 'slide-in-prepare-down');
+    newContainer.classList.remove('slide-in-prepare-left', 'slide-in-prepare-right');
     title.style.opacity = '1';
   }, 120);
 }
@@ -846,10 +850,10 @@ function changeWeek(dir) {
 // 注意：事件绑定在 initWeekTagDrag() 中，因为该函数会 cloneNode 替换容器
 
 function handleWeekSwipe() {
-  const deltaY = weekTouchStartY - weekTouchEndY;
-  if (Math.abs(deltaY) > 50) {
-    if (deltaY > 0) changeWeek(1);  // Swipe up = next week
-    else changeWeek(-1);             // Swipe down = prev week
+  const deltaX = weekTouchStartX - weekTouchEndX;
+  if (Math.abs(deltaX) > 50) {
+    if (deltaX > 0) changeWeek(1);  // Swipe left = next week
+    else changeWeek(-1);             // Swipe right = prev week
   }
 }
 
@@ -912,15 +916,15 @@ function initWeekTagDrag() {
   container.parentNode.replaceChild(newContainer, container);
   
   // 清除 cloneNode 可能复制的动画 class，避免新容器不可见
-  newContainer.classList.remove('slide-out-up', 'slide-out-down', 'slide-in-prepare-up', 'slide-in-prepare-down');
+  newContainer.classList.remove('slide-out-up', 'slide-out-down', 'slide-in-prepare-up', 'slide-in-prepare-down', 'slide-out-left', 'slide-out-right', 'slide-in-prepare-left', 'slide-in-prepare-right');
   
-  // 重新绑定滑动切周事件（因为 cloneNode 会丢失原有监听）
+  // 重新绑定滑动切周事件（左右滑动切换周）
   newContainer.addEventListener('touchstart', function(e) {
-    weekTouchStartY = e.touches[0].clientY;
+    weekTouchStartX = e.touches[0].clientX;
   }, {passive: true});
   newContainer.addEventListener('touchend', function(e) {
     if (weekDrag.active) return; // 拖拽中不触发滑动切周
-    weekTouchEndY = e.changedTouches[0].clientY;
+    weekTouchEndX = e.changedTouches[0].clientX;
     handleWeekSwipe();
   }, {passive: true});
   newContainer.addEventListener('wheel', function(e) {
