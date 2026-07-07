@@ -559,7 +559,16 @@ const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT'
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); cloudSync.push(); }
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
-  if (d) { store = JSON.parse(d); return true; }
+  if (d) {
+    store = JSON.parse(d);
+    // Ensure all todos have order field
+    let needSave = false;
+    store.todos.forEach((t, i) => {
+      if (typeof t.order !== 'number') { t.order = i; needSave = true; }
+    });
+    if (needSave) save();
+    return true;
+  }
   return false;
 }
 
@@ -622,6 +631,10 @@ const cloudSync = {
       const cloudData = JSON.parse(content);
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
         store = cloudData;
+        // Ensure all todos have order field after cloud sync
+        store.todos.forEach((t, i) => {
+          if (typeof t.order !== 'number') { t.order = i; }
+        });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
         this.setStatus('synced', '已同步');
         console.log('[CloudSync] Pull success');
@@ -1271,7 +1284,7 @@ function showAddTodoForDate(date) {
   if (!store.categories.length || store.categories.filter(c => c.id !== 'cat_draft').length === 0) { showToast('请先在 Todo 库创建分类'); return; }
   showModal('新建日程 - ' + date, '输入日程内容', (name, _color, catId) => {
     const finalCatId = catId || store.categories.find(c => c.id !== 'cat_draft')?.id || store.categories[0].id;
-    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false };
+    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false, order: Date.now() };
     store.todos.push(newTodo);
     if (!store.assignments[date]) store.assignments[date] = [];
     store.assignments[date].push(newTodo.id);
@@ -1383,7 +1396,7 @@ function renderWeekPanel() {
   if (rightSelectedCat) {
     const cat = store.categories.find(c => c.id === rightSelectedCat);
     if (!cat) { renderWeekPanel(); return; }
-    const todos = store.todos.filter(t => t.catId === cat.id).sort((a, b) => a.done - b.done);
+    const todos = store.todos.filter(t => t.catId === cat.id).sort((a, b) => (a.done - b.done) || (a.order - b.order));
     const wrap = document.createElement('div');
     wrap.className = 'category-todos';
     wrap.style.padding = '8px 14px';
@@ -1422,7 +1435,7 @@ function renderWeekPanel() {
 
   // All categories grouped
   store.categories.forEach(cat => {
-    const todos = store.todos.filter(t => t.catId === cat.id).sort((a, b) => a.done - b.done);
+    const todos = store.todos.filter(t => t.catId === cat.id).sort((a, b) => (a.done - b.done) || (a.order - b.order));
     const grp = document.createElement('div');
     grp.className = 'category-group';
     grp.innerHTML = `
@@ -1919,7 +1932,7 @@ function renderLibTodos() {
   list.innerHTML = '';
   if (!libSelectedCat) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">请选择一个分类</div>'; return; }
 
-  const todos = store.todos.filter(t => t.catId === libSelectedCat).sort((a, b) => a.done - b.done);
+  const todos = store.todos.filter(t => t.catId === libSelectedCat).sort((a, b) => (a.done - b.done) || (a.order - b.order));
   if (!todos.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">长按空白区域添加 ✨</div>'; return; }
 
   todos.forEach(t => {
@@ -2050,7 +2063,7 @@ function confirmInlineAdd() {
   if (!inp) return;
   const title = inp.value.trim();
   if (!title || !libSelectedCat) return;
-  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false });
+  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false, order: Date.now() });
   save();
   const card = document.querySelector('.lib-new-todo-card');
   if (card) card.remove();
