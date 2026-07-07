@@ -634,6 +634,7 @@ const imgDB = {
 // ===== Data Store =====
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
+let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
 let store = {
   categories: [],
   todos: [],
@@ -680,9 +681,7 @@ const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT'
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  // 每次保存后延迟5秒自动备份到云端（防 iOS 突然杀进程）
-  if (cloudSync._saveTimer) clearTimeout(cloudSync._saveTimer);
-  cloudSync._saveTimer = setTimeout(() => { cloudSync.pushNow(); }, 5000);
+  _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
 }
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
@@ -2899,6 +2898,11 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
   cloudSync.pushNow();
 });
+// 4. 定时轻量备份：每5分钟一次，距上次操作超过30秒才触发
+setInterval(() => {
+  if (Date.now() - _lastSaveTime < 30000) return;
+  if (!cloudSync._syncing) cloudSync.pushNow().catch(() => {});
+}, 5 * 60 * 1000);
 
 // Manual sync function
 function manualSync() {
