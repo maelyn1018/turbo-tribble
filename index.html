@@ -1641,7 +1641,28 @@ function toggleTodo(tid) {
     if (!store.completedLog[todayStr].includes(tid)) store.completedLog[todayStr].push(tid);
   }
   save();
-  renderCurrentPage();
+
+  // Update visual state in-place without re-sorting (sorting happens on next page load)
+  // Update all elements with this tid
+  document.querySelectorAll('[data-tid="' + tid + '"]').forEach(el => {
+    const item = el.closest('.todo-item-r, .lib-todo-item');
+    if (!item) return;
+    if (todo.done) {
+      item.classList.add('done-item');
+      const titleEl = item.querySelector('.todo-title');
+      if (titleEl) titleEl.classList.add('done');
+    } else {
+      item.classList.remove('done-item');
+      const titleEl = item.querySelector('.todo-title');
+      if (titleEl) titleEl.classList.remove('done');
+    }
+  });
+
+  // Also update the left panel tags (todo-tag in week view)
+  document.querySelectorAll('.todo-tag[data-tid="' + tid + '"]').forEach(el => {
+    if (todo.done) el.classList.add('done');
+    else el.classList.remove('done');
+  });
 }
 
 // ===== Page B: Month View =====
