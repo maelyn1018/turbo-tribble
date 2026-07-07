@@ -613,7 +613,12 @@ const DRAFT_CAT_NAME = '日程草稿箱';
 const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  // 每次保存后延迟5秒自动备份到云端（防 iOS 突然杀进程）
+  if (cloudSync._saveTimer) clearTimeout(cloudSync._saveTimer);
+  cloudSync._saveTimer = setTimeout(() => { cloudSync.pushNow(); }, 5000);
+}
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
   if (d) {
@@ -2667,8 +2672,19 @@ cloudSync.pull(!forceCloudPull).then(success => {
   }
 });
 
-// Auto-sync on page close (backup)
+// Auto-sync: 多重保障确保数据备份到云端
+// 1. beforeunload（桌面浏览器可靠）
 window.addEventListener('beforeunload', () => {
+  cloudSync.pushNow();
+});
+// 2. visibilitychange（iOS 切后台/锁屏时触发，最可靠）
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    cloudSync.pushNow();
+  }
+});
+// 3. pagehide（iOS 页面卸载时触发，比 beforeunload 可靠）
+window.addEventListener('pagehide', () => {
   cloudSync.pushNow();
 });
 
