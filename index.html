@@ -338,8 +338,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .drag-ghost{position:fixed;pointer-events:none;z-index:50;background:var(--card);border-radius:10px;padding:8px 14px;box-shadow:0 6px 20px rgba(0,0,0,0.2);font-size:13px;opacity:.95;transform:rotate(3deg)}
 
 /* Sheet Mode (分类编辑底部抽屉) */
-.modal-overlay.sheet-mode{align-items:flex-end;padding:0;transition:height .35s cubic-bezier(.22,.1,.24,1);overflow:hidden}
-.modal-overlay.sheet-mode .modal-box{border-radius:20px 20px 0 0;max-width:100%;animation:sheetUp .3s cubic-bezier(.22,.1,.24,1);box-shadow:0 -8px 40px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto}
+.modal-overlay.sheet-mode{top:auto;bottom:0;height:100dvh;align-items:flex-end;padding:0;overflow:hidden}
+.modal-overlay.sheet-mode .modal-box{border-radius:20px 20px 0 0;max-width:100%;animation:sheetUp .3s cubic-bezier(.22,.1,.24,1);box-shadow:0 -8px 40px rgba(0,0,0,0.15);max-height:85%;overflow-y:auto}
 @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-overlay.sheet-mode .modal-header{padding:12px 18px 10px;font-size:16px;border-bottom:none;position:relative}
 .modal-overlay.sheet-mode .modal-header::before{content:'';display:block;width:36px;height:4px;background:#D1D5DB;border-radius:2px;margin:0 auto 10px}
@@ -2420,34 +2420,8 @@ if (!load()) initDefaults();
 ensureDraftCategory();
 renderWeekView();
 
-// ===== Keyboard Avoidance for Sheet Modal =====
+// ===== Click outside input to dismiss keyboard =====
 (function() {
-  function adjustOverlay() {
-    const modal = document.getElementById('modal');
-    if (!modal || !modal.classList.contains('show')) return;
-    if (!modal.classList.contains('sheet-mode')) return;
-
-    if (window.visualViewport) {
-      const vv = window.visualViewport;
-      const kbH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      if (kbH > 50) {
-        modal.style.bottom = 'auto';
-        modal.style.height = vv.height + 'px';
-      } else {
-        modal.style.bottom = '';
-        modal.style.height = '';
-      }
-    }
-  }
-
-  function resetOverlay() {
-    const modal = document.getElementById('modal');
-    if (!modal) return;
-    modal.style.height = '';
-    modal.style.bottom = '';
-  }
-
-  // 点击输入框外部或遮罩层时，让输入框失焦（收起键盘）
   document.addEventListener('click', function(e) {
     const modal = document.getElementById('modal');
     if (!modal.classList.contains('show')) return;
@@ -2464,18 +2438,6 @@ renderWeekView();
       if (anyInput) anyInput.blur();
     }
   });
-
-  // 监听 visualViewport resize（键盘弹出/收起）
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', adjustOverlay);
-  }
-
-  // 关闭 modal 时重置
-  const originalCloseModal = closeModal;
-  closeModal = function() {
-    resetOverlay();
-    originalCloseModal();
-  };
 })();
 
 // Cloud sync: pull from GitHub on startup, then re-render
