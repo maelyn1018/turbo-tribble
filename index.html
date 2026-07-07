@@ -567,8 +567,73 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== Image DB (IndexedDB) =====
+// 图片数据存 IndexedDB，localStorage 只存 ID 引用，防 localStorage 撑爆
+const imgDB = {
+  DB_NAME: 'scheduleImages',
+  STORE: 'images',
+  VERSION: 1,
+  _db: null,
+
+  async init() {
+    if (this._db) return this._db;
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(this.DB_NAME, this.VERSION);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.STORE)) {
+          db.createObjectStore(this.STORE, { keyPath: 'id' });
+        }
+      };
+      req.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
+      req.onerror = (e) => { console.warn('[imgDB] init failed:', e); reject(e); };
+    });
+  },
+
+  async getImage(id) {
+    await this.init();
+    return new Promise((resolve) => {
+      const tx = this._db.transaction(this.STORE, 'readonly');
+      const req = tx.objectStore(this.STORE).get(id);
+      req.onsuccess = () => resolve(req.result ? req.result.data : null);
+      req.onerror = () => resolve(null);
+    });
+  },
+
+  async putImage(id, data) {
+    await this.init();
+    return new Promise((resolve, reject) => {
+      const tx = this._db.transaction(this.STORE, 'readwrite');
+      tx.objectStore(this.STORE).put({ id, data });
+      tx.oncomplete = () => resolve();
+      tx.onerror = (e) => reject(e);
+    });
+  },
+
+  async deleteImage(id) {
+    await this.init();
+    return new Promise((resolve) => {
+      const tx = this._db.transaction(this.STORE, 'readwrite');
+      tx.objectStore(this.STORE).delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  },
+
+  async getAll() {
+    await this.init();
+    return new Promise((resolve) => {
+      const tx = this._db.transaction(this.STORE, 'readonly');
+      const req = tx.objectStore(this.STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  }
+};
+
 // ===== Data Store =====
 const STORAGE_KEY = 'scheduleApp_v3';
+let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let store = {
   categories: [],
   todos: [],
@@ -641,6 +706,32 @@ function ensureDraftCategory() {
   }
 }
 
+// ===== Image Migration =====
+// 把 diary 中的 base64 图片拆分到 IndexedDB，store 中替换为 ID 引用
+async function migrateImagesToIDB(data) {
+  let migrated = 0;
+  const diary = data.diary || {};
+  for (const date of Object.keys(diary)) {
+    const entry = diary[date];
+    if (!entry || !entry.images) continue;
+    const newImages = [];
+    for (let i = 0; i < entry.images.length; i++) {
+      const img = entry.images[i];
+      if (img && img.startsWith('data:')) {
+        const imgId = `img_${date}_${Date.now()}_${i}`;
+        await imgDB.putImage(imgId, img);
+        newImages.push(imgId);
+        migrated++;
+      } else {
+        newImages.push(img);
+      }
+    }
+    entry.images = newImages;
+  }
+  if (migrated > 0) console.log(`[imgDB] Migrated ${migrated} images to IndexedDB`);
+  return migrated;
+}
+
 // ===== Cloud Sync (GitHub) =====
 const cloudSync = {
   GITHUB_TOKEN: 'ghp_lqdzGs9nj5wGB' + 'pIetx5eQZVMdX5z7u3l2dVn',
@@ -698,6 +789,8 @@ const cloudSync = {
       const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
       const cloudData = JSON.parse(content);
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
+        // 下载后：把 diary 中的 base64 图片拆分到 IndexedDB，store 只存 ID
+        await migrateImagesToIDB(cloudData);
         store = cloudData;
         // Ensure all todos have order field after cloud sync
         store.todos.forEach((t, i) => {
@@ -745,7 +838,23 @@ const cloudSync = {
   },
 
   async _putData() {
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(store))));
+    // 上传前：从 IndexedDB 读取图片数据，组装完整 store
+    const pushStore = JSON.parse(JSON.stringify(store)); // 深拷贝
+    const allImgs = await imgDB.getAll();
+    const imgMap = {};
+    allImgs.forEach(r => { imgMap[r.id] = r.data; });
+    // 把 diary 中的图片 ID 引用替换为实际 base64 数据
+    Object.keys(pushStore.diary || {}).forEach(date => {
+      const entry = pushStore.diary[date];
+      if (entry && entry.images) {
+        entry.images = entry.images.map(ref => {
+          if (ref && !ref.startsWith('data:') && imgMap[ref]) return imgMap[ref];
+          return ref; // 已经是 base64 或找不到数据，原样保留
+        });
+      }
+    });
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(pushStore))));
     const body = {
       message: `sync data ${new Date().toISOString().slice(0,19)}`,
       content: content,
@@ -1359,7 +1468,7 @@ function showAddTodoForDate(date) {
   showModal('新建日程 - ' + date, '输入日程内容', (name, _color, catId) => {
     pushUndo();
     const finalCatId = catId || store.categories.find(c => c.id !== 'cat_draft')?.id || store.categories[0].id;
-    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false, order: Date.now() };
+    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false, order: ++_orderCounter };
     store.todos.push(newTodo);
     if (!store.assignments[date]) store.assignments[date] = [];
     store.assignments[date].push(newTodo.id);
@@ -1726,9 +1835,15 @@ function toggleTodo(tid) {
   const wasDone = todo.done;
   todo.done = !todo.done;
   if (todo.done) {
+    // 标记完成：同步写 completedLog
     const todayStr = formatDate(new Date());
     if (!store.completedLog[todayStr]) store.completedLog[todayStr] = [];
     if (!store.completedLog[todayStr].includes(tid)) store.completedLog[todayStr].push(tid);
+  } else {
+    // 取消完成：同步清理 completedLog
+    Object.keys(store.completedLog).forEach(k => {
+      store.completedLog[k] = store.completedLog[k].filter(id => id !== tid);
+    });
   }
   save();
 
@@ -2140,7 +2255,7 @@ function confirmInlineAdd() {
   const title = inp.value.trim();
   if (!title || !libSelectedCat) return;
   pushUndo();
-  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false, order: Date.now() });
+  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false, order: ++_orderCounter });
   save();
   const card = document.querySelector('.lib-new-todo-card');
   if (card) card.remove();
@@ -2353,12 +2468,24 @@ function renderDiaryImages(images) {
     container.innerHTML = '';
     return;
   }
-  container.innerHTML = images.map((img, idx) => `
-    <div class="diary-img-item">
-      <img src="${img}" alt="diary image">
+  // 先渲染占位，再异步加载图片数据
+  container.innerHTML = images.map((imgRef, idx) => `
+    <div class="diary-img-item" data-img-idx="${idx}">
+      <img src="" alt="diary image" style="background:#f0f0f0">
       <div class="img-delete" onclick="deleteDiaryImage(${idx})">×</div>
     </div>
   `).join('');
+  // 异步加载每张图片
+  images.forEach(async (imgRef, idx) => {
+    let src = imgRef;
+    // 如果是 ID 引用（不以 data: 开头），从 IndexedDB 加载
+    if (imgRef && !imgRef.startsWith('data:')) {
+      const data = await imgDB.getImage(imgRef);
+      if (data) src = data;
+    }
+    const item = container.querySelector(`[data-img-idx="${idx}"] img`);
+    if (item) item.src = src;
+  });
 }
 
 function compressImage(file, maxW, quality, cb) {
@@ -2390,8 +2517,11 @@ function uploadDiaryImage(input) {
   const toUpload = files.slice(0, remaining);
   let done = 0;
   toUpload.forEach(file => {
-    compressImage(file, 640, 0.7, function(base64) {
-      store.diary[ds].images.push(base64);
+    compressImage(file, 640, 0.7, async function(base64) {
+      // 生成唯一 ID，存入 IndexedDB，store 只存 ID
+      const imgId = `img_${ds}_${Date.now()}_${done}`;
+      await imgDB.putImage(imgId, base64);
+      store.diary[ds].images.push(imgId);
       done++;
       if (done === toUpload.length) {
         save();
@@ -2406,7 +2536,12 @@ function uploadDiaryImage(input) {
 function deleteDiaryImage(idx) {
   const ds = formatDate(diaryDate);
   if (!store.diary[ds] || !store.diary[ds].images) return;
+  const imgRef = store.diary[ds].images[idx];
   store.diary[ds].images.splice(idx, 1);
+  // 如果是 ID 引用，从 IndexedDB 删除
+  if (imgRef && !imgRef.startsWith('data:')) {
+    imgDB.deleteImage(imgRef);
+  }
   save();
   renderDiaryImages(store.diary[ds].images);
   showToast('图片已删除');
@@ -2459,13 +2594,14 @@ function renderMonthlyDiary() {
   
   const rate = totalAssigned > 0 ? Math.round(completedCount / totalAssigned * 100) : 0;
   
-  // 照片集锦 - 收集当月所有日记照片
-  const photoItems = []; // { src, date, dateLabel }
+  // 照片集锦 - 收集当月所有日记照片（图片可能是 ID 引用，需异步加载）
+  const photoItems = []; // { src, date, dateLabel, isRef }
   dayData.forEach(dd => {
     const entry = store.diary[dd.date];
     if (entry && entry.images && entry.images.length > 0) {
       entry.images.forEach(img => {
-        photoItems.push({ src: img, date: dd.date, dateLabel: `${cm+1}/${dd.day}` });
+        const isRef = img && !img.startsWith('data:');
+        photoItems.push({ src: isRef ? '' : img, ref: isRef ? img : null, date: dd.date, dateLabel: `${cm+1}/${dd.day}` });
       });
     }
   });
@@ -2475,12 +2611,26 @@ function renderMonthlyDiary() {
   let galleryHtml = '';
   if (photoItems.length > 0) {
     galleryHtml = photoItems.map((p, idx) => `
-      <div class="md-gallery-item" onclick="openLightbox(${idx})">
-        <img src="${p.src}" alt="日记照片" loading="lazy">
+      <div class="md-gallery-item" onclick="openLightbox(${idx})" data-gallery-idx="${idx}">
+        <img src="${p.src}" alt="日记照片" loading="lazy" ${p.ref ? `data-img-ref="${p.ref}"` : ''}>
         <div class="gallery-date">${p.dateLabel}</div>
       </div>`).join('');
   } else {
     galleryHtml = '<div class="md-gallery-empty">本月暂无照片 📷</div>';
+  }
+  
+  // 异步加载 gallery 中的 ID 引用图片
+  function loadGalleryImages() {
+    document.querySelectorAll('[data-img-ref]').forEach(async (el) => {
+      const ref = el.getAttribute('data-img-ref');
+      const data = await imgDB.getImage(ref);
+      if (data) {
+        el.src = data;
+        // 更新 _monthPhotos 中对应的 src
+        const idx = parseInt(el.closest('[data-gallery-idx]')?.getAttribute('data-gallery-idx'));
+        if (!isNaN(idx) && _monthPhotos[idx]) _monthPhotos[idx].src = data;
+      }
+    });
   }
   
   // 每日总结列表（倒序）
@@ -2518,6 +2668,9 @@ function renderMonthlyDiary() {
       <div class="md-daily-list-title">每日小结</div>
       ${listHtml}
     </div>`;
+
+  // 异步加载 gallery 中的 ID 引用图片
+  loadGalleryImages();
 }
 
 function changeMonthDiary(delta) {
@@ -2620,6 +2773,62 @@ function renderCurrentPage() {
 
 // ===== Init =====
 if (!load()) initDefaults();
+// 初始化 order 计数器：取现有 todo 的最大 order + 1
+_orderCounter = store.todos.reduce((max, t) => Math.max(max, t.order || 0), 0) + 1;
+
+// 修复 completedLog 不一致：done=true 但 log 里没记录的补上
+(function fixCompletedLog() {
+  const today = formatDate(new Date());
+  if (!store.completedLog) store.completedLog = {};
+  let fixed = 0;
+  store.todos.forEach(t => {
+    if (t.done) {
+      const hasLog = Object.values(store.completedLog).some(arr => Array.isArray(arr) && arr.includes(t.id));
+      if (!hasLog) {
+        if (!store.completedLog[today]) store.completedLog[today] = [];
+        store.completedLog[today].push(t.id);
+        fixed++;
+      }
+    }
+  });
+  // 清理 completedLog 中引用了不存在 todo 的记录
+  const todoIds = new Set(store.todos.map(t => t.id));
+  Object.keys(store.completedLog).forEach(k => {
+    const before = store.completedLog[k].length;
+    store.completedLog[k] = store.completedLog[k].filter(id => todoIds.has(id));
+    if (store.completedLog[k].length !== before) fixed++;
+  });
+  if (fixed > 0) save();
+})();
+
+// 启动时迁移：将 localStorage 中的 base64 图片迁移到 IndexedDB
+(async function migrateLocalImages() {
+  if (localStorage.getItem('img_migrated') === '1') return;
+  let count = 0;
+  const diary = store.diary || {};
+  for (const date of Object.keys(diary)) {
+    const entry = diary[date];
+    if (!entry || !entry.images) continue;
+    const newImages = [];
+    for (let i = 0; i < entry.images.length; i++) {
+      const img = entry.images[i];
+      if (img && img.startsWith('data:')) {
+        const imgId = `img_${date}_${Date.now()}_${i}`;
+        await imgDB.putImage(imgId, img);
+        newImages.push(imgId);
+        count++;
+      } else {
+        newImages.push(img);
+      }
+    }
+    entry.images = newImages;
+  }
+  if (count > 0) {
+    save();
+    console.log(`[Init] Migrated ${count} local images to IndexedDB`);
+  }
+  localStorage.setItem('img_migrated', '1');
+})();
 
 // 检测本地数据是否为旧版/不完整（standalone PWA 的 localStorage 可能与浏览器隔离）
 // 真实数据有 200+ 条 todos，默认模板只有 9 条
