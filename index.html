@@ -682,6 +682,11 @@ const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT'
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
+  // 防抖云同步：操作停止30秒后推送，避免频繁卡顿
+  if (cloudSync._saveTimer) clearTimeout(cloudSync._saveTimer);
+  cloudSync._saveTimer = setTimeout(() => {
+    if (!cloudSync._syncing) cloudSync.pushNow().catch(() => {});
+  }, 30000);
 }
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
