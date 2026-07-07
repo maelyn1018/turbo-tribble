@@ -387,6 +387,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
         <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
       </svg>
     </div>
+    <div class="action-pill sync" onclick="manualSync()" title="手动备份" style="cursor:pointer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
+        <path d="M12 5v14M5 12l7 7 7-7"/>
+      </svg>
+    </div>
   </div>
   <!-- Page A: Week View -->
   <div id="pageA" class="page active">
@@ -608,7 +613,7 @@ const DRAFT_CAT_NAME = '日程草稿箱';
 const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); cloudSync.push(); }
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
   if (d) {
@@ -1025,7 +1030,7 @@ function renderWeekView() {
     cell.dataset.date = ds;
     cell.ondragover = e => { e.preventDefault(); cell.classList.add('drag-over'); };
     cell.ondragleave = () => cell.classList.remove('drag-over');
-    cell.ondrop = e => { e.preventDefault(); cell.classList.remove('drag-over'); handleDrop(ds); };
+    cell.ondrop = e => { e.preventDefault(); cell.classList.remove('drag-over'); handleDrop(ds, e); };
 
     let tagsHtml = '';
     assigned.forEach((tid, idx) => {
@@ -1663,8 +1668,8 @@ function handleDragStart(e, tid) {
   showRemoveZone();
 }
 
-function handleDrop(dateStr) {
-  const raw = event.dataTransfer.getData('text/plain');
+function handleDrop(dateStr, evt) {
+  const raw = (evt || window.event).dataTransfer.getData('text/plain');
   if (!raw) return;
   let tid, srcDate;
   try {
@@ -2641,8 +2646,23 @@ cloudSync.pull(hadLocalData).then(success => {
   if (success) {
     ensureDraftCategory();
     renderCurrentPage();
+    updateUndoBtnState();
   }
 });
+
+// Auto-sync on page close (backup)
+window.addEventListener('beforeunload', () => {
+  cloudSync.pushNow();
+});
+
+// Manual sync function
+function manualSync() {
+  cloudSync.pushNow().then(() => {
+    showToast('已备份到云端');
+  }).catch(() => {
+    showToast('备份失败，请检查网络');
+  });
+}
 
 // Double-click week title to return to current week
 function goToCurrentWeek() {
