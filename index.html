@@ -84,6 +84,12 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .custom-color-input{width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;background:none;padding:0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
 .custom-color-input::-webkit-color-swatch-wrapper{padding:0}
 .custom-color-input::-webkit-color-swatch{border-radius:50%;border:2px dashed var(--border)}
+.cat-picker{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:4px}
+.cat-picker-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;cursor:pointer;border:2px solid transparent;background:var(--card);transition:all .15s}
+.cat-picker-item:active{transform:scale(.98)}
+.cat-picker-item.selected{border-color:var(--blue);background:rgba(0,122,255,0.06)}
+.cat-picker-item .cat-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.cat-picker-item .cat-name{font-size:14px;font-weight:500;color:var(--text)}
 
 /* ===== Page A: Week View ===== */
 .week-header{display:flex;align-items:center;justify-content:center;padding:14px 16px;flex-shrink:0;position:relative}
@@ -473,6 +479,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
     <div class="modal-body">
       <input id="modalInput" placeholder="请输入名称">
       <div id="modalColorPicker" class="color-picker" style="display:none"></div>
+      <div id="modalCatPicker" class="cat-picker" style="display:none"></div>
     </div>
     <div class="modal-footer">
       <button onclick="closeModal()">取消</button>
@@ -747,6 +754,7 @@ function switchTab(id) {
 // ===== Modal with Color Picker =====
 let modalCallback = null;
 let selectedColor = PRESET_COLORS[0];
+let selectedCatId = null;
 
 function showModal(title, placeholder, cb, options = {}) {
   document.getElementById('modalTitle').textContent = title;
@@ -765,6 +773,7 @@ function showModal(title, placeholder, cb, options = {}) {
   // 所有弹窗统一使用 sheet 模式
   modal.classList.add('sheet-mode');
   
+  const catPicker = document.getElementById('modalCatPicker');
   if (options.showColorPicker) {
     selectedColor = options.initialColor || PRESET_COLORS[0];
     renderColorPicker(colorPicker, selectedColor);
@@ -776,6 +785,17 @@ function showModal(title, placeholder, cb, options = {}) {
     inp.parentNode.insertBefore(nameLabel, inp);
   } else {
     colorPicker.style.display = 'none';
+  }
+  if (options.showCategoryPicker) {
+    selectedCatId = options.initialCatId || (store.categories.find(c => c.id !== 'cat_draft')?.id || store.categories[0]?.id);
+    renderCatPicker(catPicker, selectedCatId);
+    catPicker.style.display = 'flex';
+    const catLabel = document.createElement('div');
+    catLabel.className = 'sheet-section-label';
+    catLabel.textContent = '选择分类';
+    inp.parentNode.insertBefore(catLabel, inp);
+  } else {
+    catPicker.style.display = 'none';
   }
 
   modal.classList.add('show');
@@ -809,13 +829,38 @@ function selectColorFromCustom(color) {
   document.querySelectorAll('#modalColorPicker .color-swatch').forEach(s => s.classList.remove('selected'));
 }
 
+function renderCatPicker(container, currentCatId) {
+  let html = '';
+  store.categories.filter(c => c.id !== 'cat_draft').forEach(cat => {
+    const sel = cat.id === currentCatId ? ' selected' : '';
+    html += `<div class="cat-picker-item${sel}" data-catid="${cat.id}" onclick="selectCat(this,'${cat.id}')">
+      <div class="cat-dot" style="background:${cat.color}"></div>
+      <span class="cat-name">${cat.name}</span>
+    </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function selectCat(el, catId) {
+  selectedCatId = catId;
+  document.querySelectorAll('#modalCatPicker .cat-picker-item').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
 function closeModal() { const m = document.getElementById('modal'); m.classList.remove('show'); m.classList.remove('sheet-mode'); modalCallback = null; }
 function confirmModal() {
   const v = document.getElementById('modalInput').value.trim();
   if (v && modalCallback) {
     const colorPicker = document.getElementById('modalColorPicker');
-    if (colorPicker.style.display !== 'none') {
+    const catPicker = document.getElementById('modalCatPicker');
+    const hasColor = colorPicker.style.display !== 'none';
+    const hasCat = catPicker.style.display !== 'none';
+    if (hasColor && hasCat) {
+      modalCallback(v, selectedColor, selectedCatId);
+    } else if (hasColor) {
       modalCallback(v, selectedColor);
+    } else if (hasCat) {
+      modalCallback(v, null, selectedCatId);
     } else {
       modalCallback(v);
     }
@@ -1132,17 +1177,18 @@ function cleanupDrag() {
 }
 
 function showAddTodoForDate(date) {
-  if (!store.categories.length) { showToast('请先在 Todo 库创建分类'); return; }
-  showModal('新建日程 - ' + date, '输入日程内容', (name) => {
-    const catId = store.categories[0].id;
-    const newTodo = { id: uid(), title: name, catId: catId, done: false };
+  if (!store.categories.length || store.categories.filter(c => c.id !== 'cat_draft').length === 0) { showToast('请先在 Todo 库创建分类'); return; }
+  showModal('新建日程 - ' + date, '输入日程内容', (name, _color, catId) => {
+    const finalCatId = catId || store.categories.find(c => c.id !== 'cat_draft')?.id || store.categories[0].id;
+    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false };
     store.todos.push(newTodo);
     if (!store.assignments[date]) store.assignments[date] = [];
     store.assignments[date].push(newTodo.id);
     save();
     renderWeekView();
-    showToast('已添加到 ' + date);
-  });
+    const catName = store.categories.find(c => c.id === finalCatId)?.name || '';
+    showToast('已添加到 ' + date + (catName ? '（' + catName + '）' : ''));
+  }, { showCategoryPicker: true });
 }
 
 function getDayCellAtPoint(x, y) {
