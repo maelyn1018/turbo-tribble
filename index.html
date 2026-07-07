@@ -1317,10 +1317,7 @@ function toggleCatFilter() {
   const menu = document.getElementById('catFilterMenu');
   if (menu.classList.contains('show')) { menu.classList.remove('show'); return; }
   const normalCats = store.categories.filter(c => c.id !== DRAFT_CAT_ID);
-  let html = `<div class="cat-filter-item${!rightSelectedCat ? ' active' : ''}" onclick="selectRightCat(null)">
-    <span>全部</span>
-    <span class="cat-filter-check">✓</span>
-  </div>`;
+  let html = '';
   normalCats.forEach(cat => {
     const active = rightSelectedCat === cat.id ? ' active' : '';
     html += `<div class="cat-filter-item${active}" onclick="selectRightCat('${cat.id}')">
@@ -1336,12 +1333,8 @@ function selectRightCat(catId) {
   rightSelectedCat = catId;
   document.getElementById('catFilterMenu').classList.remove('show');
   const label = document.getElementById('filterLabel');
-  if (catId) {
-    const cat = store.categories.find(c => c.id === catId);
-    label.textContent = cat ? cat.name : '';
-  } else {
-    label.textContent = '全部';
-  }
+  const cat = store.categories.find(c => c.id === catId);
+  label.textContent = cat ? cat.name : '';
   renderWeekPanel();
 }
 
@@ -1356,10 +1349,21 @@ function renderWeekPanel() {
   const panel = document.getElementById('weekPanel');
   panel.innerHTML = '';
 
+  // Auto-select first category if none selected
+  const normalCats = store.categories.filter(c => c.id !== DRAFT_CAT_ID);
+  if (!rightSelectedCat || !store.categories.find(c => c.id === rightSelectedCat)) {
+    rightSelectedCat = normalCats.length ? normalCats[0].id : null;
+    const label = document.getElementById('filterLabel');
+    if (label && rightSelectedCat) {
+      const cat = store.categories.find(c => c.id === rightSelectedCat);
+      label.textContent = cat ? cat.name : '全部';
+    }
+  }
+
   // Filter mode: show only selected category
   if (rightSelectedCat) {
     const cat = store.categories.find(c => c.id === rightSelectedCat);
-    if (!cat) { rightSelectedCat = null; renderWeekPanel(); return; }
+    if (!cat) { renderWeekPanel(); return; }
     const todos = store.todos.filter(t => t.catId === cat.id);
     const grp = document.createElement('div');
     grp.className = 'category-group';
@@ -1785,7 +1789,7 @@ function renderMonthView() {
 
 // ===== Page C: Todo Library =====
 let libSelectedCat = null;
-let rightSelectedCat = null; // null = 全部分组显示
+let rightSelectedCat = null; // null = 未初始化，会自动选第一个分类
 let libSwipeTarget = null;
 let inlineInputOpen = false;
 let libLongPressTimer = null;
