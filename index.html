@@ -759,7 +759,7 @@ const cloudSync = {
     const iconEl = document.getElementById('syncIcon');
     const textEl = document.getElementById('syncText');
     if (!el) return;
-    el.className = '';
+    el.className = 'action-pill sync'; // 保留基础样式
     if (status === 'syncing') { el.classList.add('syncing'); iconEl.textContent = '🔄'; }
     else if (status === 'synced') { el.classList.add('synced'); iconEl.textContent = '✓'; }
     else if (status === 'error') { el.classList.add('error'); iconEl.textContent = '⚠'; }
@@ -818,6 +818,7 @@ const cloudSync = {
   },
 
   async pushNow() {
+    if (this._syncing) return; // 防止重复调用卡死
     if (this._debounceTimer) { clearTimeout(this._debounceTimer); this._debounceTimer = null; }
     await this._doPush();
   },
@@ -826,8 +827,10 @@ const cloudSync = {
     if (this._syncing) return;
     this._syncing = true;
     try {
-      this.setStatus('syncing', '同步中');
-      await this._putData();
+      this.setStatus('syncing', '备份中');
+      // 加10秒超时保护
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+      await Promise.race([this._putData(), timeout]);
       this.setStatus('synced', '已同步');
     } catch (e) {
       console.warn('[CloudSync] Push failed:', e.message);
@@ -2899,10 +2902,11 @@ window.addEventListener('pagehide', () => {
 
 // Manual sync function
 function manualSync() {
+  showToast('正在备份...');
   cloudSync.pushNow().then(() => {
-    showToast('已备份到云端');
+    showToast('已备份到云端 ✓');
   }).catch(() => {
-    showToast('备份失败，请检查网络');
+    showToast('备份失败，数据已保存在本地，不会丢失');
   });
 }
 
