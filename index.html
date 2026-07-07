@@ -192,10 +192,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .lib-left{flex:0 0 35%;border-right:1px solid var(--border);overflow-y:auto;overscroll-behavior:contain;background:var(--bg-color);display:flex;flex-direction:column}
 .lib-right{flex:1;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;position:relative}
 .lib-cat-list-wrap{flex:1;overflow-y:auto;overscroll-behavior:contain}
-.lib-cat-item{display:flex;align-items:center;padding:12px 14px;margin:2px 8px;cursor:pointer;border-radius:10px;transition:all .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.lib-cat-item{display:flex;align-items:center;padding:12px 10px;margin:2px 6px;cursor:pointer;border-radius:10px;transition:all .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
 .lib-cat-item.active{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,0.06)}
 .lib-cat-item .cat-color{width:12px;height:12px;border-radius:50%;margin-right:12px;flex-shrink:0}
-.lib-cat-item .cat-label{font-size:14px;font-weight:500;flex:1}
+.lib-cat-item .cat-label{font-size:14px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lib-cat-item .cat-badge{font-size:11px;color:var(--text2);background:var(--bg-color);padding:2px 8px;border-radius:6px}
 .lib-cat-actions{position:absolute;right:0;top:0;bottom:0;display:flex;transform:translateX(100%);transition:transform .25s}
 .lib-cat-actions.show{transform:translateX(0)}
