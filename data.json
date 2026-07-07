@@ -105,7 +105,7 @@
       "id": "id_d15",
       "title": "花火大会",
       "catId": "cat_daily",
-      "done": true
+      "done": false
     },
     {
       "id": "id_d16",
@@ -538,9 +538,1435 @@
       "title": "精油按摩",
       "catId": "cat_resign",
       "done": false
+    },
+    {
+      "id": "id_d34",
+      "title": "研究休假等政策",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d35",
+      "title": "规划timeline(出差等)",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d36",
+      "title": "约双眼皮！！！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n35",
+      "title": "办跳舞卡",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_r21",
+      "title": "语言学校做好攻略",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d37",
+      "title": "买大疆?",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d38",
+      "title": "定出差",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r22",
+      "title": "语言学校确认好",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d39",
+      "title": "玉渊潭看桃花",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d40",
+      "title": "面诊信息表",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d41",
+      "title": "14:30双眼皮陈波面诊",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n36",
+      "title": "预约跳舞17",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d42",
+      "title": "剪头发",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d43",
+      "title": "研究日常记录怎么拍 图文/视频",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d44",
+      "title": "周六想拍漂亮春天照片换头像！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d45",
+      "title": "什刹海湿地 w朵泥",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d46",
+      "title": "17:50 大钟寺",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d47",
+      "title": "双眼皮决定",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d48",
+      "title": "20:10五道口",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r23",
+      "title": "京都语校发报名表",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d49",
+      "title": "20:10-22五道口",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d50",
+      "title": "spa",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d51",
+      "title": "下午再面诊",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d52",
+      "title": "mini春游",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d53",
+      "title": "20:10kpop五道口",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d54",
+      "title": "飞行安排",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d55",
+      "title": "收拾行李",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d56",
+      "title": "20点",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n37",
+      "title": "研究穿搭",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_d57",
+      "title": "深圳",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d58",
+      "title": "el买衣服+眼线笔+皮带",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d59",
+      "title": "团建",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d60",
+      "title": "oncall组聚会",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d61",
+      "title": "15:00 语校面试",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r24",
+      "title": "填写报名表",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d62",
+      "title": "彦彦&心宇",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d63",
+      "title": "修养日",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d64",
+      "title": "V",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d65",
+      "title": "留念",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d66",
+      "title": "清明节 回老家",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d67",
+      "title": "囤汇率",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d68",
+      "title": "休假日",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d69",
+      "title": "返京",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d70",
+      "title": "想吃个早茶再走",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d71",
+      "title": "李串串",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d72",
+      "title": "环球",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d73",
+      "title": "日语13课",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d74",
+      "title": "洗衣服！！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n38",
+      "title": "穿搭日 收拾出衣橱",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_d75",
+      "title": "各种机票酒店",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d76",
+      "title": "潮汕水果潮汕粽",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d77",
+      "title": "洗鞋子 收拾家里",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_r25",
+      "title": "确认九段invoice",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_d78",
+      "title": "定新疆机票租车",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d79",
+      "title": "定新疆酒店 望京",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d80",
+      "title": "霓虹酒店！",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d81",
+      "title": "双眼皮day！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d82",
+      "title": "在家",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d83",
+      "title": "丽泽甜品节",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_r26",
+      "title": "给九段回邮件",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d84",
+      "title": "买单吧券",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r27",
+      "title": "九段 缴费",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d85",
+      "title": "收行李",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r28",
+      "title": "九段订机票",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_r29",
+      "title": "九段发邮件告知",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d86",
+      "title": "新疆之旅",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r30",
+      "title": "简历要快点改好",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_r31",
+      "title": "研究签证",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_r32",
+      "title": "瓜生山缴费",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_r33",
+      "title": "瓜圣山缴费！！",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d87",
+      "title": "彦彦吃饭",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r34",
+      "title": "期权签署+离职提",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_r35",
+      "title": "做瓜圣山测试题",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d88",
+      "title": "日语练习14课",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n39",
+      "title": "hypeboy13:20",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d89",
+      "title": "囤日元",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d90",
+      "title": "清理家里 心流",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_r36",
+      "title": "公司归还",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d91",
+      "title": "洗好冲锋衣还朵妮",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d92",
+      "title": "16课",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n40",
+      "title": "跳舞 嘉禾",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_r37",
+      "title": "脚本策划囤积 离职生活or",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_d93",
+      "title": "17课",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d94",
+      "title": "复查双眼皮 约时间",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d95",
+      "title": "倒腾家里",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d96",
+      "title": "买镜子",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n41",
+      "title": "学习化妆课",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_n42",
+      "title": "跳舞twice",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d97",
+      "title": "复习，大日一全部背熟",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d98",
+      "title": "复习thechase",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n43",
+      "title": "panorama",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_n44",
+      "title": "西单买跳舞衣服",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d99",
+      "title": "thatsanono",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r38",
+      "title": "囤签证/在职证明",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d100",
+      "title": "看阿嬷手作 20:38",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d101",
+      "title": "oncall组ktv",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d102",
+      "title": "找找其他学校随舞",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n45",
+      "title": "12点化妆课！！",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d103",
+      "title": "作品集+录屏每个季度的规划复盘",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_n46",
+      "title": "这周穿搭周好好穿",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d104",
+      "title": "oncall 煲",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r39",
+      "title": "lastday订餐厅",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d105",
+      "title": "乐刻 洗牙 ai",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r40",
+      "title": "告知告别 4月",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d106",
+      "title": "下午去医院复查",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d107",
+      "title": "拿行李一小批",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d108",
+      "title": "汇率第一批 5k",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d109",
+      "title": "早上体检",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d110",
+      "title": "开始学习！！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d111",
+      "title": "收拾贵州行李",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n47",
+      "title": "规划lastday、vlog",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_r41",
+      "title": "哥哥帮改简历",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_r42",
+      "title": "小直离职party",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_n48",
+      "title": "天真蓝拍摄照片",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_n49",
+      "title": "lastday！小拍摄一下",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d112",
+      "title": "还电脑、还工卡",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d113",
+      "title": "拿一小批行李",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r43",
+      "title": "签证着急",
+      "catId": "cat_resign",
+      "done": false
+    },
+    {
+      "id": "id_r44",
+      "title": "操作一下飞书审批",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d114",
+      "title": "换飞书头像 嘘",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d115",
+      "title": "约本周约妆时间！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d116",
+      "title": "收拾家里 练舞",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d117",
+      "title": "日本攻略、记录所有想玩的事",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d118",
+      "title": "壬二酸",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n50",
+      "title": "15点 韩妆学习+美瞳",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d119",
+      "title": "换日元？",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d120",
+      "title": "拍细节！！不看镜子录视频看框架",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d121",
+      "title": "晚上19:20五道口",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d122",
+      "title": "起床先学习固定：每日日常语句",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n51",
+      "title": "晚上18-21朝阳拍摄",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d123",
+      "title": "北语 随舞17点",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d124",
+      "title": "日语复习",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n52",
+      "title": "化妆照相弄签证 227",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d125",
+      "title": "日语！学！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n53",
+      "title": "v汤泉吃榴莲",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d126",
+      "title": "保洁、学习",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_r45",
+      "title": "重新签证：撤销签证申请、机票改期、学校沟通、发送誓约书",
+      "catId": "cat_resign",
+      "done": true
+    },
+    {
+      "id": "id_d127",
+      "title": "剪视频",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d128",
+      "title": "找住宿",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d129",
+      "title": "合生汇+幸福车上唱歌",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d130",
+      "title": "潭柘寺",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d131",
+      "title": "日本攻略包括电话卡",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_n54",
+      "title": "酒店+学习+跳舞卡搞定+日本攻略+穿搭",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_d132",
+      "title": "西单买衣服",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_n55",
+      "title": "洗衣服筹备衣服；死磕韩女穿搭+",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d133",
+      "title": "聪明小脑瓜多思考",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d134",
+      "title": "行李：墨镜给妈妈",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d135",
+      "title": "aby信息填写",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_n56",
+      "title": "退化妆课！！！",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_d136",
+      "title": "侄子诞生！",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d137",
+      "title": "运动pp",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d138",
+      "title": "money",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_n57",
+      "title": "化妆课退钱",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_d139",
+      "title": "处理各种事情：选座",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d140",
+      "title": "2.整理日历",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d141",
+      "title": "3.回家+日语日常用语影子跟练",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_n58",
+      "title": "起床 拆快递 洗衣服 新光界买衣服 嘉禾跳舞/",
+      "catId": "cat_newlife",
+      "done": true
+    },
+    {
+      "id": "id_n59",
+      "title": "好物分享！！先储备100条 拍照玩",
+      "catId": "cat_newlife",
+      "done": false
+    },
+    {
+      "id": "id_d142",
+      "title": "新光界买衣服*排练",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d143",
+      "title": "弄app+写日程",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d144",
+      "title": "演唱会",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d145",
+      "title": "早起看",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d146",
+      "title": "丽泽天街逛街",
+      "catId": "cat_daily",
+      "done": true
+    },
+    {
+      "id": "id_d147",
+      "title": "酸辣粉",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d148",
+      "title": "和哥哥共度临走",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d149",
+      "title": "大阪",
+      "catId": "cat_daily",
+      "done": false
+    },
+    {
+      "id": "id_d150",
+      "title": "祈园祭！",
+      "catId": "cat_daily",
+      "done": false
     }
   ],
-  "assignments": {},
+  "assignments": {
+    "2026-03-09": [
+      "id_d34",
+      "id_d35",
+      "id_d36"
+    ],
+    "2026-03-10": [
+      "id_n35",
+      "id_r21",
+      "id_d37"
+    ],
+    "2026-03-11": [
+      "id_d38",
+      "id_r22"
+    ],
+    "2026-03-12": [
+      "id_d39",
+      "id_d40"
+    ],
+    "2026-03-13": [
+      "id_d41"
+    ],
+    "2026-03-14": [
+      "id_n36",
+      "id_d42"
+    ],
+    "2026-03-15": [
+      "id_d43",
+      "id_d44"
+    ],
+    "2026-03-16": [
+      "id_d45",
+      "id_d46",
+      "id_d47"
+    ],
+    "2026-03-17": [
+      "id_d48",
+      "id_r23"
+    ],
+    "2026-03-18": [
+      "id_d49"
+    ],
+    "2026-03-20": [
+      "id_d50",
+      "id_d51"
+    ],
+    "2026-03-21": [
+      "id_d52"
+    ],
+    "2026-03-23": [
+      "id_d53",
+      "id_d54"
+    ],
+    "2026-03-24": [
+      "id_d55",
+      "id_d56",
+      "id_n37"
+    ],
+    "2026-03-25": [
+      "id_d57",
+      "id_d33"
+    ],
+    "2026-03-26": [
+      "id_d58"
+    ],
+    "2026-03-27": [
+      "id_d59"
+    ],
+    "2026-03-28": [
+      "id_d60"
+    ],
+    "2026-03-29": [
+      "id_d60"
+    ],
+    "2026-03-30": [
+      "id_d61"
+    ],
+    "2026-03-31": [
+      "id_r24",
+      "id_d62"
+    ],
+    "2026-04-01": [
+      "id_d63"
+    ],
+    "2026-04-02": [
+      "id_d64"
+    ],
+    "2026-04-03": [
+      "id_d65"
+    ],
+    "2026-04-04": [
+      "id_d66"
+    ],
+    "2026-04-05": [
+      "id_d66"
+    ],
+    "2026-04-06": [
+      "id_d66",
+      "id_d67"
+    ],
+    "2026-04-07": [
+      "id_d68",
+      "id_d69",
+      "id_d70"
+    ],
+    "2026-04-08": [
+      "id_d71"
+    ],
+    "2026-04-10": [
+      "id_d72",
+      "id_d73"
+    ],
+    "2026-04-11": [
+      "id_d74",
+      "id_n38",
+      "id_d75"
+    ],
+    "2026-04-12": [
+      "id_d76",
+      "id_n01",
+      "id_d77"
+    ],
+    "2026-04-13": [
+      "id_r25",
+      "id_d78"
+    ],
+    "2026-04-14": [
+      "id_d79",
+      "id_d80"
+    ],
+    "2026-04-15": [
+      "id_d81",
+      "id_d82"
+    ],
+    "2026-04-16": [
+      "id_d63"
+    ],
+    "2026-04-17": [
+      "id_d63"
+    ],
+    "2026-04-18": [
+      "id_d83",
+      "id_d63"
+    ],
+    "2026-04-19": [
+      "id_d63"
+    ],
+    "2026-04-20": [
+      "id_r26",
+      "id_r19",
+      "id_d84"
+    ],
+    "2026-04-21": [
+      "id_r27"
+    ],
+    "2026-04-22": [
+      "id_d85"
+    ],
+    "2026-04-23": [
+      "id_r28",
+      "id_r29",
+      "id_d85"
+    ],
+    "2026-04-24": [
+      "id_d86"
+    ],
+    "2026-04-27": [
+      "id_r30",
+      "id_r31"
+    ],
+    "2026-05-03": [
+      "id_r32"
+    ],
+    "2026-05-05": [
+      "id_d82"
+    ],
+    "2026-05-06": [
+      "id_r33",
+      "id_d87",
+      "id_r34"
+    ],
+    "2026-05-07": [
+      "id_r35",
+      "id_d88"
+    ],
+    "2026-05-08": [
+      "id_r17",
+      "id_r09",
+      "id_r01"
+    ],
+    "2026-05-09": [
+      "id_n39",
+      "id_d89",
+      "id_d90"
+    ],
+    "2026-05-10": [
+      "id_r36",
+      "id_d91",
+      "id_d92"
+    ],
+    "2026-05-11": [
+      "id_n40",
+      "id_r37"
+    ],
+    "2026-05-12": [
+      "id_d93"
+    ],
+    "2026-05-13": [
+      "id_d94",
+      "id_d95"
+    ],
+    "2026-05-14": [
+      "id_d96",
+      "id_n41",
+      "id_n42"
+    ],
+    "2026-05-16": [
+      "id_d97"
+    ],
+    "2026-05-18": [
+      "id_d98",
+      "id_d28"
+    ],
+    "2026-05-19": [
+      "id_n43"
+    ],
+    "2026-05-20": [
+      "id_n44",
+      "id_d82",
+      "id_d31"
+    ],
+    "2026-05-21": [
+      "id_d99",
+      "id_r38",
+      "id_d100"
+    ],
+    "2026-05-22": [
+      "id_d101",
+      "id_d102"
+    ],
+    "2026-05-23": [
+      "id_n45"
+    ],
+    "2026-05-25": [
+      "id_r10",
+      "id_d103",
+      "id_n46"
+    ],
+    "2026-05-26": [
+      "id_d104",
+      "id_r38"
+    ],
+    "2026-05-27": [
+      "id_d29",
+      "id_r39",
+      "id_d105"
+    ],
+    "2026-05-28": [
+      "id_r02",
+      "id_r40",
+      "id_r16"
+    ],
+    "2026-05-29": [
+      "id_d106",
+      "id_d107",
+      "id_d108"
+    ],
+    "2026-05-30": [
+      "id_d109",
+      "id_d110"
+    ],
+    "2026-05-31": [
+      "id_d111",
+      "id_n47",
+      "id_r41"
+    ],
+    "2026-06-02": [
+      "id_r42",
+      "id_n48"
+    ],
+    "2026-06-03": [
+      "id_n49",
+      "id_d112",
+      "id_d113"
+    ],
+    "2026-06-04": [
+      "id_r43"
+    ],
+    "2026-06-05": [
+      "id_d111",
+      "id_r44",
+      "id_d114"
+    ],
+    "2026-06-06": [
+      "id_d111"
+    ],
+    "2026-06-07": [
+      "id_d111",
+      "id_d115"
+    ],
+    "2026-06-08": [
+      "id_d116"
+    ],
+    "2026-06-09": [
+      "id_d117",
+      "id_d118",
+      "id_n50"
+    ],
+    "2026-06-10": [
+      "id_d119",
+      "id_r13",
+      "id_r12"
+    ],
+    "2026-06-11": [
+      "id_d120",
+      "id_d28"
+    ],
+    "2026-06-12": [
+      "id_d121",
+      "id_d122"
+    ],
+    "2026-06-13": [
+      "id_n51"
+    ],
+    "2026-06-14": [
+      "id_d123",
+      "id_d124"
+    ],
+    "2026-06-15": [
+      "id_n52",
+      "id_d125"
+    ],
+    "2026-06-16": [
+      "id_n53",
+      "id_d126",
+      "id_r45"
+    ],
+    "2026-06-17": [
+      "id_d127",
+      "id_d128",
+      "id_d13"
+    ],
+    "2026-06-19": [
+      "id_n27",
+      "id_d82",
+      "id_d129"
+    ],
+    "2026-06-20": [
+      "id_n27"
+    ],
+    "2026-06-21": [
+      "id_d130"
+    ],
+    "2026-06-22": [
+      "id_d131",
+      "id_n54",
+      "id_d132"
+    ],
+    "2026-06-23": [
+      "id_n55",
+      "id_d33",
+      "id_d133"
+    ],
+    "2026-06-24": [
+      "id_d134",
+      "id_d135",
+      "id_d04"
+    ],
+    "2026-06-25": [
+      "id_d57"
+    ],
+    "2026-06-28": [
+      "id_n56",
+      "id_d136",
+      "id_n04"
+    ],
+    "2026-06-29": [
+      "id_d137",
+      "id_d138"
+    ],
+    "2026-06-30": [
+      "id_n57",
+      "id_d139",
+      "id_r05"
+    ],
+    "2026-07-01": [
+      "id_d132",
+      "id_d140",
+      "id_d141"
+    ],
+    "2026-07-02": [
+      "id_n58",
+      "id_n58",
+      "id_n59"
+    ],
+    "2026-07-03": [
+      "id_d142",
+      "id_n59",
+      "id_d143"
+    ],
+    "2026-07-04": [
+      "id_d144",
+      "id_d145",
+      "id_d146"
+    ],
+    "2026-07-05": [
+      "id_n48"
+    ],
+    "2026-07-06": [
+      "id_n34",
+      "id_n08",
+      "id_d01"
+    ],
+    "2026-07-07": [
+      "id_d106",
+      "id_d147"
+    ],
+    "2026-07-11": [
+      "id_d148"
+    ],
+    "2026-07-19": [
+      "id_d149",
+      "id_d150"
+    ]
+  },
   "diary": {
     "2026-03-09": {
       "summary": "研究休假等政策、规划timeline(出差等)、约双眼皮！！！",
@@ -858,9 +2284,5 @@
       "images": []
     }
   },
-  "completedLog": {
-    "2026-07-07": [
-      "id_d15"
-    ]
-  }
+  "completedLog": {}
 }
