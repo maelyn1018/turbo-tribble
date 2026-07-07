@@ -69,10 +69,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .modal-body input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:12px;font-size:15px;outline:none;transition:border .2s;background:#F9F9F9}
 .modal-body input:focus{border-color:var(--blue);background:#FFF}
 .modal-footer{display:flex;border-top:1px solid var(--border)}
-.modal-footer .btn{flex:1;padding:16px;border-radius:0;background:none;font-size:16px}
-.modal-footer .btn:first-child{border-right:1px solid var(--border);color:var(--text2)}
-.modal-footer .btn:last-child{font-weight:600;color:var(--blue)}
-.modal-footer .btn:active{background:var(--blue-light)}
+.modal-footer button,.modal-footer .btn{flex:1;padding:14px;border-radius:0;background:none;font-size:15px;border:none;cursor:pointer;font-weight:400;color:var(--text2);transition:background .15s}
+.modal-footer button:last-child,.modal-footer .btn:last-child{font-weight:600;color:var(--blue)}
+.modal-footer button:first-child,.modal-footer .btn:first-child{border-right:1px solid var(--border)}
+.modal-footer button:active,.modal-footer .btn:active{background:var(--blue-light)}
+.modal-section-label{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:-6px}
 
 /* Color Picker (Redesigned) */
 .color-picker{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;justify-content:center;padding:4px}
@@ -336,24 +337,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 
 /* ===== Drag Ghost ===== */
 .drag-ghost{position:fixed;pointer-events:none;z-index:50;background:var(--card);border-radius:10px;padding:8px 14px;box-shadow:0 6px 20px rgba(0,0,0,0.2);font-size:13px;opacity:.95;transform:rotate(3deg)}
-
-/* Sheet Mode (分类编辑底部抽屉) */
-.modal-overlay.sheet-mode{top:auto;bottom:0;height:100dvh;align-items:flex-end;padding:0;overflow:hidden}
-.modal-overlay.sheet-mode .modal-box{border-radius:20px 20px 0 0;max-width:100%;animation:sheetUp .3s cubic-bezier(.22,.1,.24,1);box-shadow:0 -8px 40px rgba(0,0,0,0.15);max-height:85%;overflow-y:auto}
-@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.modal-overlay.sheet-mode .modal-header{padding:12px 18px 10px;font-size:16px;border-bottom:none;position:relative}
-.modal-overlay.sheet-mode .modal-header::before{content:'';display:block;width:36px;height:4px;background:#D1D5DB;border-radius:2px;margin:0 auto 10px}
-.modal-overlay.sheet-mode .modal-body{padding:8px 20px 16px;gap:14px}
-.modal-overlay.sheet-mode .modal-body input{border-radius:14px;padding:14px 16px;font-size:16px;background:#F5F5F7;border:2px solid transparent}
-.modal-overlay.sheet-mode .modal-body input:focus{border-color:var(--blue);background:#fff}
-.modal-overlay.sheet-mode .color-picker{gap:12px;padding:6px 0;justify-content:flex-start}
-.modal-overlay.sheet-mode .color-swatch{width:40px;height:40px}
-.modal-overlay.sheet-mode .modal-footer{border-top:none;padding:12px 20px 28px;gap:12px;display:flex;justify-content:stretch}
-.modal-overlay.sheet-mode .modal-footer button{flex:1;padding:15px;border-radius:14px;font-size:16px;font-weight:500;border:none;cursor:pointer;transition:all .15s}
-.modal-overlay.sheet-mode .modal-footer button:first-child{background:#F2F2F7;color:var(--text2);font-weight:400}
-.modal-overlay.sheet-mode .modal-footer button:last-child{background:var(--blue);color:#fff;font-weight:600;box-shadow:0 2px 8px rgba(0,122,255,0.25)}
-.modal-overlay.sheet-mode .modal-footer button:active{transform:scale(.97);opacity:.85}
-.modal-overlay.sheet-mode .sheet-section-label{font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
 
 /* Sync Status */
 #syncStatus.syncing{background:rgba(0,122,255,.12);color:var(--blue)}
@@ -792,19 +775,15 @@ function showModal(title, placeholder, cb, options = {}) {
   const modalBody = modal.querySelector('.modal-body');
   
   // 清除旧的section label
-  modalBody.querySelectorAll('.sheet-section-label').forEach(el => el.remove());
-  
-  // 所有弹窗统一使用 sheet 模式
-  modal.classList.add('sheet-mode');
+  modalBody.querySelectorAll('.modal-section-label').forEach(el => el.remove());
   
   const catPicker = document.getElementById('modalCatPicker');
   if (options.showColorPicker) {
     selectedColor = options.initialColor || PRESET_COLORS[0];
     renderColorPicker(colorPicker, selectedColor);
     colorPicker.style.display = 'flex';
-    // 在input前插入"分类名称"标签
     const nameLabel = document.createElement('div');
-    nameLabel.className = 'sheet-section-label';
+    nameLabel.className = 'modal-section-label';
     nameLabel.textContent = '分类名称';
     inp.parentNode.insertBefore(nameLabel, inp);
   } else {
@@ -815,7 +794,7 @@ function showModal(title, placeholder, cb, options = {}) {
     renderCatPicker(catPicker, selectedCatId);
     catPicker.style.display = 'flex';
     const catLabel = document.createElement('div');
-    catLabel.className = 'sheet-section-label';
+    catLabel.className = 'modal-section-label';
     catLabel.textContent = '选择分类';
     inp.parentNode.insertBefore(catLabel, inp);
   } else {
@@ -827,11 +806,7 @@ function showModal(title, placeholder, cb, options = {}) {
 }
 
 function renderColorPicker(container, currentColor) {
-  const isSheet = document.getElementById('modal').classList.contains('sheet-mode');
-  let html = '';
-  if (isSheet) {
-    html += '<div class="sheet-section-label">选择颜色</div>';
-  }
+  let html = '<div class="modal-section-label">选择颜色</div>';
   PRESET_COLORS.forEach(c => {
     const sel = c === currentColor ? ' selected' : '';
     html += `<div class="color-swatch${sel}" style="background:${c}" data-color="${c}" onclick="selectColor(this,'${c}')"></div>`;
@@ -871,7 +846,7 @@ function selectCat(el, catId) {
   el.classList.add('selected');
 }
 
-function closeModal() { const m = document.getElementById('modal'); m.classList.remove('show'); m.classList.remove('sheet-mode'); modalCallback = null; }
+function closeModal() { const m = document.getElementById('modal'); m.classList.remove('show'); modalCallback = null; }
 function confirmModal() {
   const v = document.getElementById('modalInput').value.trim();
   if (v && modalCallback) {
