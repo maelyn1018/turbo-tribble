@@ -1360,29 +1360,23 @@ function renderWeekPanel() {
     }
   }
 
-  // Filter mode: show only selected category
+  // Filter mode: show only selected category (no redundant header, filter btn shows category)
   if (rightSelectedCat) {
     const cat = store.categories.find(c => c.id === rightSelectedCat);
     if (!cat) { renderWeekPanel(); return; }
     const todos = store.todos.filter(t => t.catId === cat.id);
-    const grp = document.createElement('div');
-    grp.className = 'category-group';
-    grp.innerHTML = `
-      <div class="category-header" style="cursor:default">
-        <span class="arrow" style="visibility:hidden">▼</span>
-        <span class="cat-name" style="color:${cat.color}">${cat.name}</span>
-        <span class="cat-count">${todos.length}</span>
-      </div>
-      <div class="category-todos">
+    const wrap = document.createElement('div');
+    wrap.className = 'category-todos';
+    wrap.style.padding = '8px 14px';
+    wrap.innerHTML = `
         ${todos.map(t => {
           const cls = 'todo-item-r' + (t.done ? ' done-item' : '');
           return `<div class="${cls}" draggable="true" ondragstart="handleDragStart(event,'${t.id}')" ondragend="hideRemoveZone()" onclick="toggleTodo('${t.id}')" data-tid="${t.id}">
             <span class="todo-dot"></span><span class="todo-title ${t.done?'done':''}">${t.title}</span>
           </div>`;
         }).join('')}
-        ${todos.length === 0 ? '<div style="padding:8px 14px;color:var(--text2);font-size:13px">该分类暂无待办</div>' : ''}
-      </div>`;
-    panel.appendChild(grp);
+        ${todos.length === 0 ? '<div style="padding:8px 0;color:var(--text2);font-size:13px">该分类暂无待办</div>' : ''}`;
+    panel.appendChild(wrap);
     if (!panel._poolDragBound) {
       panel._poolDragBound = true;
       panel.addEventListener('touchstart', function(e) {
