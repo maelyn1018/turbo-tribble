@@ -93,8 +93,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .cat-picker-item .cat-name{font-size:14px;font-weight:500;color:var(--text)}
 
 /* ===== Page A: Week View ===== */
-.week-header{display:flex;align-items:center;justify-content:center;padding:14px 16px;flex-shrink:0;position:relative}
-.week-header h2{font-size:18px;font-weight:700;color:var(--text)}
+.week-header{display:flex;align-items:center;justify-content:center;padding:14px 16px;flex-shrink:0;position:relative;gap:8px}
+.week-header h2{font-size:18px;font-weight:700;color:var(--text);flex:1;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.week-nav-btn{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-color);color:var(--text2);flex-shrink:0;transition:background .15s}
+.week-nav-btn:active{background:var(--blue-light)}
 .week-body{flex:1;display:flex;gap:10px;padding:0 12px;overflow:hidden;min-height:0}
 .week-left{flex:0 0 56%;display:flex;flex-direction:column;gap:4px;overflow-y:auto;overscroll-behavior-y:contain;transition:transform .12s cubic-bezier(.22,.1,.24,1),opacity .12s cubic-bezier(.22,.1,.24,1)}
 .week-left.slide-out-up{transform:translateY(-100%);opacity:0}
@@ -365,7 +367,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
   <!-- Page A: Week View -->
   <div id="pageA" class="page active">
     <div class="week-header">
+      <div class="week-nav-btn" onclick="changeWeek(-1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></div>
       <h2 id="weekTitle" style="cursor:pointer;user-select:none">第1周</h2>
+      <div class="week-nav-btn" onclick="changeWeek(1)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></div>
     </div>
     <div class="week-body">
       <div class="week-left" id="weekDays"></div>
