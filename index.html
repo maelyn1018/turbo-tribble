@@ -27,7 +27,8 @@
   --glass:rgba(255,255,255,.72);
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
-html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:var(--bg-color);color:var(--text);overflow:hidden}
+html{height:100%;overflow:hidden;overscroll-behavior:none}
+body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:var(--bg-color);color:var(--text);overflow:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:auto;position:fixed;width:100%;top:0;left:0;margin:0}
 #app{max-width:420px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative;background:var(--bg-grad);background-attachment:fixed}
 
 /* ===== Page Container ===== */
@@ -154,7 +155,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .month-day.selected .mini-tag{background:rgba(255,255,255,.3)!important;color:rgba(255,255,255,.9)}
 .month-day .more-badge{position:absolute;bottom:2px;right:2px;font-size:8px;background:var(--blue);color:#fff;padding:0 3px;border-radius:4px}
 .month-day.selected .more-badge{background:rgba(255,255,255,.3)}
-.month-detail{flex-shrink:0;margin:0 12px 10px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;display:block;max-height:160px;overflow-y:auto}
+.month-detail{flex-shrink:0;margin:0 12px 10px;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;display:block;max-height:160px;overflow-y:auto;overscroll-behavior-y:contain}
 .month-detail.show{display:block}
 .month-detail h3{font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text)}
 .month-detail .detail-todo{display:flex;align-items:center;gap:10px;padding:4px 0;font-size:13px;border-bottom:1px solid var(--border)}
@@ -163,9 +164,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 
 /* ===== Page C: Todo Library ===== */
 .lib-body{flex:1;display:flex;overflow:hidden;min-height:0}
-.lib-left{flex:0 0 35%;border-right:1px solid var(--border);overflow-y:auto;background:var(--card);display:flex;flex-direction:column}
-.lib-right{flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative}
-.lib-cat-list-wrap{flex:1;overflow-y:auto}
+.lib-left{flex:0 0 35%;border-right:1px solid var(--border);overflow-y:auto;overscroll-behavior-y:contain;background:var(--card);display:flex;flex-direction:column}
+.lib-right{flex:1;overflow-y:auto;overscroll-behavior-y:contain;display:flex;flex-direction:column;position:relative}
+.lib-cat-list-wrap{flex:1;overflow-y:auto;overscroll-behavior-y:contain}
 .lib-cat-item{display:flex;align-items:center;padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:all .15s;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
 .lib-cat-item.active{background:var(--blue-light)}
 .lib-cat-item .cat-color{width:12px;height:12px;border-radius:50%;margin-right:12px;flex-shrink:0}
@@ -214,7 +215,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .diary-date-nav{display:flex;align-items:center;justify-content:center;gap:16px;padding:12px 16px;flex-shrink:0;position:relative}
 .diary-date-nav .current-date{font-size:17px;font-weight:600;color:var(--text);cursor:pointer;padding:8px 16px;border-radius:10px;transition:background .15s}
 .diary-date-nav .current-date:active{background:var(--blue-light)}
-.diary-content{flex:1;padding:0 12px 12px;overflow-y:auto}
+.diary-content{flex:1;padding:0 12px 12px;overflow-y:auto;overscroll-behavior-y:contain}
 .diary-section{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
 .diary-section h3{font-size:14px;font-weight:600;color:var(--blue);margin-bottom:10px}
 .diary-section textarea{width:100%;min-height:60px;border:1px solid var(--border);border-radius:12px;padding:12px;font-size:14px;resize:vertical;outline:none;font-family:inherit;transition:border .2s;background:#F9F9F9}
@@ -237,7 +238,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .diary-img-item .img-delete{position:absolute;top:4px;right:4px;width:20px;height:20px;background:rgba(255,59,48,0.9);border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:transform .15s}
 .diary-img-item .img-delete:active{transform:scale(.9)}
 
-.monthly-view{padding:0 12px 12px;overflow-y:auto;flex:1;display:none}
+.monthly-view{padding:0 12px 12px;overflow-y:auto;overscroll-behavior-y:contain;flex:1;display:none}
 .monthly-view.show{display:block}
 /* 月记统计区 */
 .md-header{display:flex;align-items:center;justify-content:space-between;padding:8px 0 12px}
@@ -276,7 +277,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 /* ===== Date Picker Modal ===== */
 .date-picker-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:180;display:none;align-items:flex-end;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 .date-picker-overlay.show{display:flex}
-.date-picker-box{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:420px;margin:0 auto;padding:20px;animation:slideUp .25s ease;max-height:70vh;overflow-y:auto}
+.date-picker-box{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:420px;margin:0 auto;padding:20px;animation:slideUp .25s ease;max-height:70vh;overflow-y:auto;overscroll-behavior-y:contain}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .date-picker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
 .date-picker-header h3{font-size:16px;font-weight:600}
@@ -321,7 +322,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 
 /* Sheet Mode (分类编辑底部抽屉) */
 .modal-overlay.sheet-mode{align-items:flex-end;padding:0}
-.modal-overlay.sheet-mode .modal-box{border-radius:20px 20px 0 0;max-width:100%;animation:sheetUp .3s cubic-bezier(.22,.1,.24,1);box-shadow:0 -8px 40px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;transition:transform .25s cubic-bezier(.22,.1,.24,1)}
+.modal-overlay.sheet-mode .modal-box{border-radius:20px 20px 0 0;max-width:100%;animation:sheetUp .3s cubic-bezier(.22,.1,.24,1);box-shadow:0 -8px 40px rgba(0,0,0,0.15);max-height:85vh;overflow-y:auto;overscroll-behavior-y:contain;transition:transform .25s cubic-bezier(.22,.1,.24,1)}
 @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-overlay.sheet-mode .modal-header{padding:12px 18px 10px;font-size:16px;border-bottom:none;position:relative}
 .modal-overlay.sheet-mode .modal-header::before{content:'';display:block;width:36px;height:4px;background:#D1D5DB;border-radius:2px;margin:0 auto 10px}
@@ -363,7 +364,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
         <div class="panel-title">
           <span>Todo 库</span>
         </div>
-        <div id="weekPanel" style="overflow-y:auto;flex:1" ondragover="event.preventDefault();this.classList.add('pool-drop-target')" ondragleave="this.classList.remove('pool-drop-target')" ondrop="event.preventDefault();this.classList.remove('pool-drop-target');handleDropToPool(event)"></div>
+        <div id="weekPanel" style="overflow-y:auto;flex:1;overscroll-behavior-y:contain" ondragover="event.preventDefault();this.classList.add('pool-drop-target')" ondragleave="this.classList.remove('pool-drop-target')" ondrop="event.preventDefault();this.classList.remove('pool-drop-target');handleDropToPool(event)"></div>
       </div>
     </div>
   </div>
