@@ -1329,12 +1329,20 @@ function toggleCatFilter() {
   menu.classList.add('show');
 }
 
+function updateFilterBtnColor(cat) {
+  const btn = document.querySelector('.cat-filter-btn');
+  if (!btn || !cat) return;
+  btn.style.background = cat.color + '22'; // 15% opacity version
+  btn.style.color = cat.color;
+}
+
 function selectRightCat(catId) {
   rightSelectedCat = catId;
   document.getElementById('catFilterMenu').classList.remove('show');
   const label = document.getElementById('filterLabel');
   const cat = store.categories.find(c => c.id === catId);
   label.textContent = cat ? cat.name : '';
+  updateFilterBtnColor(cat);
   renderWeekPanel();
 }
 
@@ -1357,6 +1365,7 @@ function renderWeekPanel() {
     if (label && rightSelectedCat) {
       const cat = store.categories.find(c => c.id === rightSelectedCat);
       label.textContent = cat ? cat.name : '全部';
+      updateFilterBtnColor(cat);
     }
   }
 
