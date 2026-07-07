@@ -120,7 +120,8 @@
 <script>
 // Cloud sync push to GitHub
 async function cloudSyncPush(data) {
-  var TOKEN = 'ghp_lqdzGs9nj5wGB' + 'pIetx5eQZVMdX5z7u3l2dVn';
+  var TOKEN = localStorage.getItem('github_token') || '';
+  if (!TOKEN) { alert('请先在主页面设置 GitHub Token'); }
   var REPO = 'maelyn1018/turbo-tribble';
   var API = 'https://api.github.com/repos/' + REPO + '/contents/data.json';
   var headers = { 'Authorization': 'token ' + TOKEN, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
