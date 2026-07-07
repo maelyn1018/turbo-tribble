@@ -1232,31 +1232,27 @@ function initWeekTagDrag() {
     hideRemoveZone();
   }, { passive: true });
 
-  // ===== 长按日期卡片新建日程 =====
-  let cellPressTimer = null;
-  newContainer.addEventListener('touchstart', function(e) {
+  // ===== 双击日期卡片新建日程 =====
+  let lastDblTapTime = 0, lastDblTapCell = null;
+  newContainer.addEventListener('touchend', function(e) {
     const cell = e.target.closest('.day-cell');
-    if (!cell || e.target.closest('.todo-tag')) return;
-    const date = cell.dataset.date;
-    cellPressTimer = setTimeout(() => {
+    if (!cell || e.target.closest('.todo-tag')) { lastDblTapTime = 0; lastDblTapCell = null; return; }
+    const now = Date.now();
+    if (lastDblTapCell === cell && now - lastDblTapTime < 350) {
+      lastDblTapTime = 0; lastDblTapCell = null;
       if (navigator.vibrate) navigator.vibrate(30);
-      showAddTodoForDate(date);
-    }, 500);
-  }, {passive: true});
-  newContainer.addEventListener('touchend', function() { clearTimeout(cellPressTimer); });
-  newContainer.addEventListener('touchmove', function() { clearTimeout(cellPressTimer); });
-  newContainer.addEventListener('touchcancel', function() { clearTimeout(cellPressTimer); });
-  // 桌面端长按
-  newContainer.addEventListener('mousedown', function(e) {
+      showAddTodoForDate(cell.dataset.date);
+      e.preventDefault();
+    } else {
+      lastDblTapTime = now; lastDblTapCell = cell;
+    }
+  });
+  // 桌面端双击
+  newContainer.addEventListener('dblclick', function(e) {
     const cell = e.target.closest('.day-cell');
     if (!cell || e.target.closest('.todo-tag')) return;
-    const date = cell.dataset.date;
-    cellPressTimer = setTimeout(() => {
-      showAddTodoForDate(date);
-    }, 500);
+    showAddTodoForDate(cell.dataset.date);
   });
-  newContainer.addEventListener('mouseup', function() { clearTimeout(cellPressTimer); });
-  newContainer.addEventListener('mouseleave', function() { clearTimeout(cellPressTimer); });
 }
 
 function cleanupDrag() {
