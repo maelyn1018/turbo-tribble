@@ -129,7 +129,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .remove-zone.hover{background:rgba(255,59,48,0.28);border-color:#FF2D20}
 .remove-zone svg{width:20px;height:20px;flex-shrink:0}
 
-.panel-title{padding:12px 14px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.panel-title{padding:12px 14px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative}
+.panel-title .filter-icon{cursor:pointer;padding:4px 6px;border-radius:8px;transition:background .15s;display:flex;align-items:center;gap:4px}
+.panel-title .filter-icon:active{background:var(--blue-light)}
+.panel-title .filter-icon .filter-label{font-size:12px;color:var(--text2);font-weight:500;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel-title .filter-icon svg{flex-shrink:0}
+.cat-filter-menu{position:absolute;top:100%;right:8px;background:var(--card);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.15);border:1px solid var(--border);min-width:180px;z-index:100;display:none;overflow:hidden}
+.cat-filter-menu.show{display:block}
+.cat-filter-item{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;transition:background .12s;font-size:14px}
+.cat-filter-item:active{background:var(--blue-light)}
+.cat-filter-item.active{background:rgba(0,122,255,0.08)}
+.cat-filter-item .cat-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat-filter-item .cat-filter-name{flex:1;font-weight:500}
+.cat-filter-item .cat-filter-check{color:var(--blue);font-size:14px;display:none}
+.cat-filter-item.active .cat-filter-check{display:block}
 .category-group{border-bottom:1px solid var(--border)}
 .category-header{display:flex;align-items:center;padding:10px 14px;cursor:pointer;gap:10px;-webkit-user-select:none;user-select:none}
 .category-header .arrow{transition:transform .2s;font-size:10px;color:var(--text2)}
@@ -363,6 +376,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
       <div class="week-right">
         <div class="panel-title">
           <span>Todo 库</span>
+          <div class="filter-icon" onclick="toggleCatFilter()">
+            <span class="filter-label" id="filterLabel">全部</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div class="cat-filter-menu" id="catFilterMenu"></div>
         </div>
         <div id="weekPanel" style="overflow-y:auto;overscroll-behavior:contain;flex:1" ondragover="event.preventDefault();this.classList.add('pool-drop-target')" ondragleave="this.classList.remove('pool-drop-target')" ondrop="event.preventDefault();this.classList.remove('pool-drop-target');handleDropToPool(event)"></div>
       </div>
@@ -1299,9 +1317,100 @@ function moveTodoInWeek(tid, srcDate, targetDate, beforeTid) {
 let poolDrag = { active: false, timer: null, tid: null, startX: 0, startY: 0, ghost: null, srcEl: null };
 let _poolDragDocBound = false;
 
+// ===== Right Panel Category Filter =====
+function toggleCatFilter() {
+  const menu = document.getElementById('catFilterMenu');
+  if (menu.classList.contains('show')) { menu.classList.remove('show'); return; }
+  const normalCats = store.categories.filter(c => c.id !== DRAFT_CAT_ID);
+  let html = `<div class="cat-filter-item${!rightSelectedCat ? ' active' : ''}" onclick="selectRightCat(null)">
+    <div class="cat-filter-dot" style="background:#999"></div>
+    <span class="cat-filter-name">全部</span>
+    <span class="cat-filter-check">✓</span>
+  </div>`;
+  normalCats.forEach(cat => {
+    const active = rightSelectedCat === cat.id ? ' active' : '';
+    html += `<div class="cat-filter-item${active}" onclick="selectRightCat('${cat.id}')">
+      <div class="cat-filter-dot" style="background:${cat.color}"></div>
+      <span class="cat-filter-name">${cat.name}</span>
+      <span class="cat-filter-check">✓</span>
+    </div>`;
+  });
+  menu.innerHTML = html;
+  menu.classList.add('show');
+}
+
+function selectRightCat(catId) {
+  rightSelectedCat = catId;
+  document.getElementById('catFilterMenu').classList.remove('show');
+  const label = document.getElementById('filterLabel');
+  if (catId) {
+    const cat = store.categories.find(c => c.id === catId);
+    label.textContent = cat ? cat.name : '';
+  } else {
+    label.textContent = '全部';
+  }
+  renderWeekPanel();
+}
+
+document.addEventListener('click', function(e) {
+  const menu = document.getElementById('catFilterMenu');
+  if (menu && !e.target.closest('.filter-icon') && !menu.contains(e.target)) {
+    menu.classList.remove('show');
+  }
+});
+
 function renderWeekPanel() {
   const panel = document.getElementById('weekPanel');
   panel.innerHTML = '';
+
+  // Filter mode: show only selected category
+  if (rightSelectedCat) {
+    const cat = store.categories.find(c => c.id === rightSelectedCat);
+    if (!cat) { rightSelectedCat = null; renderWeekPanel(); return; }
+    const todos = store.todos.filter(t => t.catId === cat.id);
+    const grp = document.createElement('div');
+    grp.className = 'category-group';
+    grp.innerHTML = `
+      <div class="category-header" style="cursor:default">
+        <span class="arrow" style="visibility:hidden">▼</span>
+        <span class="cat-name" style="color:${cat.color}">${cat.name}</span>
+        <span class="cat-count">${todos.length}</span>
+      </div>
+      <div class="category-todos">
+        ${todos.map(t => {
+          const cls = 'todo-item-r' + (t.done ? ' done-item' : '');
+          return `<div class="${cls}" draggable="true" ondragstart="handleDragStart(event,'${t.id}')" ondragend="hideRemoveZone()" onclick="toggleTodo('${t.id}')" data-tid="${t.id}">
+            <span class="todo-dot"></span><span class="todo-title ${t.done?'done':''}">${t.title}</span>
+          </div>`;
+        }).join('')}
+        ${todos.length === 0 ? '<div style="padding:8px 14px;color:var(--text2);font-size:13px">该分类暂无待办</div>' : ''}
+      </div>`;
+    panel.appendChild(grp);
+    if (!panel._poolDragBound) {
+      panel._poolDragBound = true;
+      panel.addEventListener('touchstart', function(e) {
+        const item = e.target.closest('.todo-item-r');
+        if (!item) return;
+        const touch = e.touches[0];
+        poolDrag.startX = touch.clientX; poolDrag.startY = touch.clientY;
+        poolDrag.tid = item.dataset.tid; poolDrag.srcEl = item;
+        poolDrag.timer = setTimeout(() => {
+          poolDrag.active = true; item.style.opacity = '0.3';
+          const todo = store.todos.find(t => t.id === poolDrag.tid);
+          const color = todo ? getCatColor(todo.catId) : '#999';
+          const ghost = document.createElement('div');
+          ghost.className = 'week-drag-ghost'; ghost.style.background = color;
+          ghost.textContent = todo ? todo.title : '';
+          ghost.style.left = touch.clientX + 'px'; ghost.style.top = touch.clientY + 'px';
+          document.body.appendChild(ghost); poolDrag.ghost = ghost;
+          if (navigator.vibrate) navigator.vibrate(30); showRemoveZone();
+        }, 350);
+      }, { passive: true });
+    }
+    return;
+  }
+
+  // All categories grouped
   store.categories.forEach(cat => {
     const todos = store.todos.filter(t => t.catId === cat.id);
     const grp = document.createElement('div');
@@ -1683,6 +1792,7 @@ function renderMonthView() {
 
 // ===== Page C: Todo Library =====
 let libSelectedCat = null;
+let rightSelectedCat = null; // null = 全部分组显示
 let libSwipeTarget = null;
 let inlineInputOpen = false;
 let libLongPressTimer = null;
