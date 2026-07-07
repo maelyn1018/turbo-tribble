@@ -130,18 +130,14 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .remove-zone svg{width:20px;height:20px;flex-shrink:0}
 
 .panel-title{padding:12px 14px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative}
-.panel-title .filter-icon{cursor:pointer;padding:4px 6px;border-radius:8px;transition:background .15s;display:flex;align-items:center;gap:4px}
-.panel-title .filter-icon:active{background:var(--blue-light)}
-.panel-title .filter-icon .filter-label{font-size:12px;color:var(--text2);font-weight:500;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.panel-title .filter-icon svg{flex-shrink:0}
-.cat-filter-menu{position:absolute;top:100%;right:8px;background:var(--card);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.15);border:1px solid var(--border);min-width:180px;z-index:100;display:none;overflow:hidden}
+.panel-title .cat-filter-btn{cursor:pointer;padding:5px 10px;border-radius:8px;transition:background .15s;display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:var(--text2);border:1px solid var(--border);background:var(--card)}
+.panel-title .cat-filter-btn:active{background:var(--blue-light)}
+.cat-filter-menu{position:absolute;top:calc(100% + 4px);right:14px;background:var(--card);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.12);border:1px solid var(--border);min-width:150px;z-index:100;display:none;overflow:hidden;padding:4px 0}
 .cat-filter-menu.show{display:block}
-.cat-filter-item{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;transition:background .12s;font-size:14px}
+.cat-filter-item{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;transition:background .12s;font-size:13px;font-weight:500;color:var(--text)}
 .cat-filter-item:active{background:var(--blue-light)}
-.cat-filter-item.active{background:rgba(0,122,255,0.08)}
-.cat-filter-item .cat-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.cat-filter-item .cat-filter-name{flex:1;font-weight:500}
-.cat-filter-item .cat-filter-check{color:var(--blue);font-size:14px;display:none}
+.cat-filter-item.active{color:var(--blue)}
+.cat-filter-item .cat-filter-check{margin-left:auto;color:var(--blue);font-size:13px;display:none}
 .cat-filter-item.active .cat-filter-check{display:block}
 .category-group{border-bottom:1px solid var(--border)}
 .category-header{display:flex;align-items:center;padding:10px 14px;cursor:pointer;gap:10px;-webkit-user-select:none;user-select:none}
@@ -376,9 +372,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
       <div class="week-right">
         <div class="panel-title">
           <span>Todo 库</span>
-          <div class="filter-icon" onclick="toggleCatFilter()">
-            <span class="filter-label" id="filterLabel">全部</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+          <div class="cat-filter-btn" onclick="toggleCatFilter()">
+            <span id="filterLabel">全部</span>
+            <span style="font-size:10px">▼</span>
           </div>
           <div class="cat-filter-menu" id="catFilterMenu"></div>
         </div>
@@ -1323,15 +1319,13 @@ function toggleCatFilter() {
   if (menu.classList.contains('show')) { menu.classList.remove('show'); return; }
   const normalCats = store.categories.filter(c => c.id !== DRAFT_CAT_ID);
   let html = `<div class="cat-filter-item${!rightSelectedCat ? ' active' : ''}" onclick="selectRightCat(null)">
-    <div class="cat-filter-dot" style="background:#999"></div>
-    <span class="cat-filter-name">全部</span>
+    <span>全部</span>
     <span class="cat-filter-check">✓</span>
   </div>`;
   normalCats.forEach(cat => {
     const active = rightSelectedCat === cat.id ? ' active' : '';
     html += `<div class="cat-filter-item${active}" onclick="selectRightCat('${cat.id}')">
-      <div class="cat-filter-dot" style="background:${cat.color}"></div>
-      <span class="cat-filter-name">${cat.name}</span>
+      <span>${cat.name}</span>
       <span class="cat-filter-check">✓</span>
     </div>`;
   });
@@ -1354,7 +1348,7 @@ function selectRightCat(catId) {
 
 document.addEventListener('click', function(e) {
   const menu = document.getElementById('catFilterMenu');
-  if (menu && !e.target.closest('.filter-icon') && !menu.contains(e.target)) {
+  if (menu && !e.target.closest('.cat-filter-btn') && !menu.contains(e.target)) {
     menu.classList.remove('show');
   }
 });
