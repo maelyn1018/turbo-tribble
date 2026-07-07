@@ -95,7 +95,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .week-left.slide-in-prepare-up{transform:translateY(100%);opacity:0;transition:none}
 .week-left.slide-in-prepare-down{transform:translateY(-100%);opacity:0;transition:none}
 .week-right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow)}
-.day-cell{background:var(--card);border-radius:14px;padding:8px 10px;flex:1;min-height:0;transition:all .2s;border:2px solid transparent;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.day-cell{background:var(--card);border-radius:14px;padding:8px 10px;flex-shrink:0;transition:all .2s;border:2px solid transparent;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 .day-cell.drag-over{background:var(--blue-light);border-color:var(--blue);transform:scale(1.02)}
 .day-cell-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-shrink:0}
 .day-cell-header .weekday-label{font-size:13px;font-weight:600;color:var(--text)}
@@ -103,7 +103,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .day-cell.is-today{background:#EEF5FF;border:1.5px solid rgba(77,184,232,.25)}
 .day-cell.is-today .weekday-label{color:var(--blue)}
 .day-cell.is-today .date-label{color:var(--blue);font-weight:700;font-size:12px}
-.day-cell .todo-tags{display:flex;flex-wrap:wrap;gap:4px;overflow:hidden;flex:1;min-height:0;align-content:flex-start}
+.day-cell .todo-tags{display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
 .todo-tag{font-size:12px;font-weight:500;padding:5px 10px 5px 6px;border-radius:8px;color:var(--text);background:rgba(0,0,0,0.04);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;cursor:pointer;transition:all .2s;-webkit-user-select:none;user-select:none;display:inline-flex;align-items:center;gap:6px;box-shadow:none}
 .todo-tag:active{transform:scale(.95)}
 .todo-tag.done{text-decoration:line-through;opacity:.55}
