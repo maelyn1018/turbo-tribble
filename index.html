@@ -1090,6 +1090,32 @@ function initWeekTagDrag() {
     clearTimeout(weekDrag.timer);
     cleanupDrag();
   }, { passive: true });
+
+  // ===== 长按日期卡片新建日程 =====
+  let cellPressTimer = null;
+  newContainer.addEventListener('touchstart', function(e) {
+    const cell = e.target.closest('.day-cell');
+    if (!cell || e.target.closest('.todo-tag')) return;
+    const date = cell.dataset.date;
+    cellPressTimer = setTimeout(() => {
+      if (navigator.vibrate) navigator.vibrate(30);
+      showAddTodoForDate(date);
+    }, 500);
+  }, {passive: true});
+  newContainer.addEventListener('touchend', function() { clearTimeout(cellPressTimer); });
+  newContainer.addEventListener('touchmove', function() { clearTimeout(cellPressTimer); });
+  newContainer.addEventListener('touchcancel', function() { clearTimeout(cellPressTimer); });
+  // 桌面端长按
+  newContainer.addEventListener('mousedown', function(e) {
+    const cell = e.target.closest('.day-cell');
+    if (!cell || e.target.closest('.todo-tag')) return;
+    const date = cell.dataset.date;
+    cellPressTimer = setTimeout(() => {
+      showAddTodoForDate(date);
+    }, 500);
+  });
+  newContainer.addEventListener('mouseup', function() { clearTimeout(cellPressTimer); });
+  newContainer.addEventListener('mouseleave', function() { clearTimeout(cellPressTimer); });
 }
 
 function cleanupDrag() {
@@ -1103,6 +1129,20 @@ function cleanupDrag() {
   weekDrag.insertTarget = null;
   weekDrag.insertBefore = null;
   weekDrag.returnToPool = false;
+}
+
+function showAddTodoForDate(date) {
+  if (!store.categories.length) { showToast('请先在 Todo 库创建分类'); return; }
+  showModal('新建日程 - ' + date, '输入日程内容', (name) => {
+    const catId = store.categories[0].id;
+    const newTodo = { id: uid(), title: name, catId: catId, done: false };
+    store.todos.push(newTodo);
+    if (!store.assignments[date]) store.assignments[date] = [];
+    store.assignments[date].push(newTodo.id);
+    save();
+    renderWeekView();
+    showToast('已添加到 ' + date);
+  });
 }
 
 function getDayCellAtPoint(x, y) {
