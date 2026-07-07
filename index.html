@@ -572,6 +572,36 @@ let store = {
   completedLog: {}
 };
 
+// ===== Undo System =====
+const undoStack = [];
+const UNDO_MAX = 30;
+
+function pushUndo() {
+  undoStack.push(JSON.stringify(store));
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  updateUndoBtnState();
+}
+
+function performUndo() {
+  if (undoStack.length === 0) {
+    showToast('没有可撤销的操作');
+    return;
+  }
+  const prevState = undoStack.pop();
+  store = JSON.parse(prevState);
+  save();
+  renderCurrentPage();
+  updateUndoBtnState();
+  showToast('已撤销');
+}
+
+function updateUndoBtnState() {
+  const btn = document.getElementById('undoBtn');
+  if (!btn) return;
+  if (undoStack.length === 0) btn.classList.add('disabled');
+  else btn.classList.remove('disabled');
+}
+
 const PRESET_COLORS = ['#4DB8E8','#66CC99','#FF9966','#FF6B9D','#AF52DE','#FF3B30','#007AFF','#5AC8FA','#FFCC00','#34C759'];
 const DRAFT_CAT_ID = 'cat_draft';
 const DRAFT_CAT_NAME = '日程草稿箱';
