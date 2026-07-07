@@ -2261,4 +2261,51 @@ if (cloudSync.GITHUB_TOKEN) {
     }
   });
 }
+
+
+// 强制重新同步函数
+function forceResync() {
+  const el = document.getElementById('syncStatus');
+  const iconEl = document.getElementById('syncIcon');
+  const textEl = document.getElementById('syncText');
+  
+  iconEl.textContent = '🔄';
+  textEl.textContent = '强制同步中...';
+  el.classList.remove('synced', 'error');
+  el.classList.add('syncing');
+  
+  // 清除本地数据，强制从云端拉取
+  localStorage.removeItem('scheduleApp_v3');
+  
+  // 确保 Token 已设置
+  if (!cloudSync.GITHUB_TOKEN) {
+    let savedToken = localStorage.getItem('github_token');
+    if (savedToken) {
+      cloudSync.GITHUB_TOKEN = savedToken.trim();
+    } else {
+      let inputToken = prompt('请输入 GitHub Token：');
+      if (inputToken) {
+        cloudSync.GITHUB_TOKEN = inputToken.trim();
+        localStorage.setItem('github_token', cloudSync.GITHUB_TOKEN);
+      }
+    }
+  }
+  
+  if (cloudSync.GITHUB_TOKEN) {
+    cloudSync.pull().then(success => {
+      if (success) {
+        renderCurrentPage();
+        alert('同步成功！数据已更新。');
+      } else {
+        alert('同步失败，请检查网络或 Token。');
+        textEl.textContent = '同步失败';
+        el.classList.remove('syncing');
+        el.classList.add('error');
+      }
+    });
+  } else {
+    alert('未设置 GitHub Token，无法同步。');
+  }
+}
+
 </script>
