@@ -1634,6 +1634,7 @@ function handleDropToPool(e) {
 function toggleTodo(tid) {
   const todo = store.todos.find(t => t.id === tid);
   if (!todo) return;
+  const wasDone = todo.done;
   todo.done = !todo.done;
   if (todo.done) {
     const todayStr = formatDate(new Date());
@@ -1642,27 +1643,22 @@ function toggleTodo(tid) {
   }
   save();
 
-  // Update visual state in-place without re-sorting (sorting happens on next page load)
-  // Update all elements with this tid
-  document.querySelectorAll('[data-tid="' + tid + '"]').forEach(el => {
-    const item = el.closest('.todo-item-r, .lib-todo-item');
-    if (!item) return;
-    if (todo.done) {
+  if (todo.done) {
+    // Marking as done: update visual in-place, don't re-sort yet
+    document.querySelectorAll('[data-tid="' + tid + '"]').forEach(el => {
+      const item = el.closest('.todo-item-r, .lib-todo-item');
+      if (!item) return;
       item.classList.add('done-item');
       const titleEl = item.querySelector('.todo-title');
       if (titleEl) titleEl.classList.add('done');
-    } else {
-      item.classList.remove('done-item');
-      const titleEl = item.querySelector('.todo-title');
-      if (titleEl) titleEl.classList.remove('done');
-    }
-  });
-
-  // Also update the left panel tags (todo-tag in week view)
-  document.querySelectorAll('.todo-tag[data-tid="' + tid + '"]').forEach(el => {
-    if (todo.done) el.classList.add('done');
-    else el.classList.remove('done');
-  });
+    });
+    document.querySelectorAll('.todo-tag[data-tid="' + tid + '"]').forEach(el => {
+      el.classList.add('done');
+    });
+  } else {
+    // Unmarking done: re-render to move it back to uncompleted section
+    renderCurrentPage();
+  }
 }
 
 // ===== Page B: Month View =====
