@@ -375,6 +375,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
         <div class="week-date-sub" id="weekDateSub"></div>
       </div>
       <div class="week-nav-btn" onclick="changeWeek(1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></div>
+      <div class="week-undo-btn" id="undoBtn" onclick="performUndo()" title="撤销"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 0 10H9"/><path d="M7 6l-4 4 4 4"/></svg></div>
     </div>
     <div class="week-body">
       <div class="week-left" id="weekDays"></div>
@@ -614,7 +615,7 @@ const cloudSync = {
     textEl.textContent = text || '';
   },
 
-  async pull() {
+  async pull(skipOverwrite = false) {
     try {
       this.setStatus('syncing', '同步中');
       const resp = await fetch(this.apiUrl, { headers: this.headers });
@@ -627,6 +628,12 @@ const cloudSync = {
       if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
       const data = await resp.json();
       this._sha = data.sha;
+      // If we have local data, only update SHA, don't overwrite
+      if (skipOverwrite) {
+        this.setStatus('synced', '已同步');
+        console.log('[CloudSync] Pull success (SHA only, local preserved)');
+        return true;
+      }
       const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
       const cloudData = JSON.parse(content);
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
@@ -693,8 +700,13 @@ const cloudSync = {
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       if (resp.status === 409 && !body._retried) {
-        console.log('[CloudSync] SHA conflict, re-fetching...');
-        await this.pull();
+        console.log('[CloudSync] SHA conflict, re-fetching SHA only...');
+        // Only re-fetch SHA, don't overwrite local store
+        const refetchResp = await fetch(this.apiUrl, { headers: this.headers });
+        if (refetchResp.ok) {
+          const refetchData = await refetchResp.json();
+          this._sha = refetchData.sha;
+        }
         body.sha = this._sha;
         body._retried = true;
         const retryResp = await fetch(this.apiUrl, {
@@ -1003,6 +1015,7 @@ function hideRemoveZone() {
   if (rz) { rz.classList.remove('active', 'hover'); }
 }
 function removeFromScheduleToDraft(tid, srcDate) {
+  pushUndo();
   // Remove from assignments
   if (srcDate && store.assignments[srcDate]) {
     store.assignments[srcDate] = store.assignments[srcDate].filter(id => id !== tid);
@@ -1283,6 +1296,7 @@ function cleanupDrag() {
 function showAddTodoForDate(date) {
   if (!store.categories.length || store.categories.filter(c => c.id !== 'cat_draft').length === 0) { showToast('请先在 Todo 库创建分类'); return; }
   showModal('新建日程 - ' + date, '输入日程内容', (name, _color, catId) => {
+    pushUndo();
     const finalCatId = catId || store.categories.find(c => c.id !== 'cat_draft')?.id || store.categories[0].id;
     const newTodo = { id: uid(), title: name, catId: finalCatId, done: false, order: Date.now() };
     store.todos.push(newTodo);
@@ -1647,6 +1661,7 @@ function handleDropToPool(e) {
 function toggleTodo(tid) {
   const todo = store.todos.find(t => t.id === tid);
   if (!todo) return;
+  pushUndo();
   const wasDone = todo.done;
   todo.done = !todo.done;
   if (todo.done) {
@@ -2063,6 +2078,7 @@ function confirmInlineAdd() {
   if (!inp) return;
   const title = inp.value.trim();
   if (!title || !libSelectedCat) return;
+  pushUndo();
   store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false, order: Date.now() });
   save();
   const card = document.querySelector('.lib-new-todo-card');
@@ -2138,6 +2154,7 @@ function showEditTodoModal(tid) {
 }
 
 function deleteTodo(tid) {
+  pushUndo();
   store.todos = store.todos.filter(t => t.id !== tid);
   Object.keys(store.assignments).forEach(k => {
     store.assignments[k] = store.assignments[k].filter(id => id !== tid);
@@ -2544,6 +2561,7 @@ function renderCurrentPage() {
 if (!load()) initDefaults();
 ensureDraftCategory();
 renderWeekView();
+updateUndoBtnState();
 
 // ===== Click outside input to dismiss keyboard =====
 (function() {
@@ -2565,8 +2583,10 @@ renderWeekView();
   });
 })();
 
-// Cloud sync: pull from GitHub on startup, then re-render
-cloudSync.pull().then(success => {
+// Cloud sync: pull from GitHub on startup
+// Only overwrite local data if localStorage was empty (fresh install)
+const hadLocalData = localStorage.getItem(STORAGE_KEY) !== null;
+cloudSync.pull(hadLocalData).then(success => {
   if (success) {
     ensureDraftCategory();
     renderCurrentPage();
