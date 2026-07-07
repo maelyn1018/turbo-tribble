@@ -1377,7 +1377,7 @@ function renderWeekPanel() {
   if (rightSelectedCat) {
     const cat = store.categories.find(c => c.id === rightSelectedCat);
     if (!cat) { renderWeekPanel(); return; }
-    const todos = store.todos.filter(t => t.catId === cat.id);
+    const todos = store.todos.filter(t => t.catId === cat.id).sort((a, b) => a.done - b.done);
     const wrap = document.createElement('div');
     wrap.className = 'category-todos';
     wrap.style.padding = '8px 14px';
@@ -1416,7 +1416,7 @@ function renderWeekPanel() {
 
   // All categories grouped
   store.categories.forEach(cat => {
-    const todos = store.todos.filter(t => t.catId === cat.id);
+    const todos = store.todos.filter(t => t.catId === cat.id).sort((a, b) => a.done - b.done);
     const grp = document.createElement('div');
     grp.className = 'category-group';
     grp.innerHTML = `
@@ -1896,7 +1896,7 @@ function renderLibTodos() {
   list.innerHTML = '';
   if (!libSelectedCat) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">请选择一个分类</div>'; return; }
 
-  const todos = store.todos.filter(t => t.catId === libSelectedCat);
+  const todos = store.todos.filter(t => t.catId === libSelectedCat).sort((a, b) => a.done - b.done);
   if (!todos.length) { list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);font-size:14px">长按空白区域添加 ✨</div>'; return; }
 
   todos.forEach(t => {
