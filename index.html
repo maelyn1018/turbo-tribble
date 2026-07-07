@@ -349,7 +349,7 @@ body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Hel
 <body>
 <div id="app">
   <!-- Sync Status -->
-  <div id="syncStatus" style="position:fixed;top:8px;right:8px;z-index:50;font-size:11px;padding:3px 8px;border-radius:10px;background:rgba(0,0,0,.06);color:var(--text2);transition:all .3s;cursor:default;user-select:none;display:flex;align-items:center;gap:3px">
+  <div id="syncStatus" style="position:fixed;top:8px;right:8px;z-index:50;font-size:11px;padding:3px 8px;border-radius:10px;background:rgba(0,0,0,.06);color:var(--text2);transition:all .3s;cursor:pointer;user-select:none;display:flex;align-items:center;gap:3px" onclick="forceResync()" title="点击强制同步">
     <span id="syncIcon">⏳</span>
     <span id="syncText">连接中</span>
   </div>
