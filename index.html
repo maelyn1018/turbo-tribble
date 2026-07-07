@@ -132,6 +132,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .todo-item-r.done-item{opacity:.5}
 .todo-item-r .todo-title{font-size:13px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .todo-item-r .todo-title.done{text-decoration:line-through;color:var(--text2)}
+.todo-item-r .todo-dot{width:6px;height:6px;border-radius:50%;background:#333;flex-shrink:0}
 
 /* ===== Page B: Month View ===== */
 .month-header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;flex-shrink:0}
@@ -1161,7 +1162,7 @@ function renderWeekPanel() {
         ${todos.map(t => {
           const cls = 'todo-item-r' + (t.done ? ' done-item' : '');
           return `<div class="${cls}" draggable="true" ondragstart="handleDragStart(event,'${t.id}')" onclick="toggleTodo('${t.id}')" data-tid="${t.id}">
-            <span class="todo-title ${t.done?'done':''}">${t.title}</span>
+            <span class="todo-dot"></span><span class="todo-title ${t.done?'done':''}">${t.title}</span>
           </div>`;
         }).join('')}
       </div>`;
