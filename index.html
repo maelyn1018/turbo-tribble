@@ -776,9 +776,10 @@ const cloudSync = {
   async pull(skipOverwrite = false) {
     try {
       this.setStatus('syncing', '同步中');
-      // 用 raw URL 下载数据（无1MB大小限制），用 API 获取 SHA（用于后续 push）
+      // 用 raw URL 下载数据（无1MB大小限制，不带auth避免CORS预检），用 API 获取 SHA
+      const timeout = (ms) => new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms));
       const [rawResp, apiResp] = await Promise.all([
-        fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`, { headers: this.headers }),
+        fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`).catch(e => { console.warn('[CloudSync] Raw fetch failed:', e.message); return { ok: false, status: 0, json: async () => null }; }),
         fetch(this.apiUrl, { headers: this.headers })
       ]);
       if (apiResp.status === 404) {
@@ -850,7 +851,7 @@ const cloudSync = {
       // 推送前安全校验：用 raw URL 读取云端数据（无1MB限制），用 API 获取 SHA
       try {
         const [rawCheck, apiCheck] = await Promise.all([
-          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`, { headers: this.headers }),
+          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`).catch(e => { console.warn('[CloudSync] Raw pre-check failed:', e.message); return { ok: false, json: async () => null }; }),
           fetch(this.apiUrl, { headers: this.headers })
         ]);
         if (apiCheck.ok) {
