@@ -1475,7 +1475,8 @@ function showAddTodoForDate(date) {
   showModal('新建日程 - ' + date, '输入日程内容', (name, _color, catId) => {
     pushUndo();
     const finalCatId = catId || store.categories.find(c => c.id !== 'cat_draft')?.id || store.categories[0].id;
-    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false, order: ++_orderCounter };
+    const catMinOrder = store.todos.filter(t => t.catId === finalCatId).reduce((m, t) => Math.min(m, t.order), 0);
+    const newTodo = { id: uid(), title: name, catId: finalCatId, done: false, order: catMinOrder - 1 };
     store.todos.push(newTodo);
     if (!store.assignments[date]) store.assignments[date] = [];
     store.assignments[date].push(newTodo.id);
@@ -2262,7 +2263,8 @@ function confirmInlineAdd() {
   const title = inp.value.trim();
   if (!title || !libSelectedCat) return;
   pushUndo();
-  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false, order: ++_orderCounter });
+  const catMinOrder = store.todos.filter(t => t.catId === libSelectedCat).reduce((m, t) => Math.min(m, t.order), 0);
+  store.todos.push({ id: uid(), title, catId: libSelectedCat, done: false, order: catMinOrder - 1 });
   save();
   const card = document.querySelector('.lib-new-todo-card');
   if (card) card.remove();
