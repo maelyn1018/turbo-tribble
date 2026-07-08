@@ -840,6 +840,32 @@ const cloudSync = {
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
+      // 推送前安全校验：先拉云端数据，如果云端比本地多则不推送（防止旧数据覆盖云端）
+      try {
+        const resp = await fetch(this.apiUrl, { headers: this.headers });
+        if (resp.ok) {
+          const data = await resp.json();
+          const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
+          const cloudData = JSON.parse(content);
+          if (cloudData && cloudData.todos) {
+            const cloudCount = cloudData.todos.length;
+            const localCount = store.todos ? store.todos.length : 0;
+            if (cloudCount > localCount) {
+              console.warn(`[CloudSync] Cloud has ${cloudCount} todos, local has ${localCount} - aborting push to protect cloud data`);
+              this.setStatus('synced', '已同步');
+              // 云端更新，拉取到本地
+              await migrateImagesToIDB(cloudData);
+              store = cloudData;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+              renderCurrentPage();
+              return;
+            }
+          }
+          this._sha = data.sha; // 保存 SHA 用于后续 PUT
+        }
+      } catch (e) {
+        console.warn('[CloudSync] Pre-push check failed, proceeding with push:', e.message);
+      }
       // 加10秒超时保护
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
       await Promise.race([this._putData(), timeout]);
