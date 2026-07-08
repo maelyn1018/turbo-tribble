@@ -681,13 +681,14 @@ const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function save() {
+  store.lastModified = Date.now(); // 标记本地数据修改时间，pull时据此判断谁更新
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   _lastSaveTime = Date.now();
-  // 3秒防抖云同步：快速同步到云端，减少关App丢数据风险
+  // 1秒防抖云同步（缩短到1秒，减少关App时push未完成的风险）
   if (cloudSync._saveTimer) clearTimeout(cloudSync._saveTimer);
   cloudSync._saveTimer = setTimeout(() => {
     if (!cloudSync._syncing) cloudSync.pushNow().catch(() => {});
-  }, 3000);
+  }, 1000);
 }
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
@@ -799,18 +800,38 @@ const cloudSync = {
       if (!rawResp.ok) throw new Error(`Raw download ${rawResp.status}`);
       const cloudData = await rawResp.json();
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
-        // 单设备使用：云端数据直接覆盖本地，保证与云端一致
-        // 下载后：把 diary 中的 base64 图片拆分到 IndexedDB，store 只存 ID
-        await migrateImagesToIDB(cloudData);
-        store = cloudData;
-        // Ensure all todos have order field after cloud sync
-        store.todos.forEach((t, i) => {
-          if (typeof t.order !== 'number') { t.order = i; }
-        });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-        this.setStatus('synced', '已同步');
-        console.log(`[CloudSync] Pull success: ${cloudData.todos?.length} todos`);
-        return true;
+        // 【关键】比较本地与云端的 lastModified，只有云端更新才覆盖本地
+        // 这样：新增日程后关APP（push可能未完成），重开时本地数据比云端新→保留本地→不丢数据
+        const cloudLM = cloudData.lastModified || 0;
+        const localLM = store.lastModified || 0;
+        let shouldOverwrite = false;
+        if (cloudLM > localLM) {
+          // 云端时间戳比本地新→覆盖（如Safari数据被清后重开）
+          shouldOverwrite = true;
+        } else if (cloudLM === 0 && localLM === 0) {
+          // 两边都没有lastModified（旧数据或首次部署），用数据量兜底：更多todos = 更完整
+          shouldOverwrite = cloudData.todos.length > store.todos.length;
+        }
+        // else: localLM >= cloudLM 且不全为0 → 本地更新，保留本地
+
+        if (shouldOverwrite) {
+          console.log(`[CloudSync] Cloud data wins (cloudLM:${cloudLM} localLM:${localLM} cloudTodos:${cloudData.todos.length} localTodos:${store.todos.length}), overwriting local`);
+          await migrateImagesToIDB(cloudData);
+          store = cloudData;
+          store.todos.forEach((t, i) => {
+            if (typeof t.order !== 'number') { t.order = i; }
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+          this.setStatus('synced', '已同步');
+          console.log(`[CloudSync] Pull success: ${cloudData.todos?.length} todos`);
+          return true;
+        } else {
+          // 本地比云端新或同齢→保留本地，不覆盖
+          console.log(`[CloudSync] Local wins (cloudLM:${cloudLM} localLM:${localLM} cloudTodos:${cloudData.todos.length} localTodos:${store.todos.length}), keeping local`);
+          this._sha = apiData.sha; // 仍更新SHA，供下次push用
+          this.setStatus('synced', '已同步');
+          return true;
+        }
       } else {
         console.warn('[CloudSync] Cloud data invalid, using local');
         this.setStatus('synced', '已同步');
@@ -825,7 +846,7 @@ const cloudSync = {
 
   push() {
     if (this._debounceTimer) clearTimeout(this._debounceTimer);
-    this._debounceTimer = setTimeout(() => this._doPush(), 3000);
+    this._debounceTimer = setTimeout(() => this._doPush(), 1000);
   },
 
   async pushNow() {
