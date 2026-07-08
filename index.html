@@ -2869,22 +2869,21 @@ updateUndoBtnState();
 })();
 
 // Cloud sync: pull from GitHub on startup
-// 如果本地数据量不足（standalone PWA 存储隔离），强制从云端拉取
-const forceCloudPull = localDataIsStale;
-if (forceCloudPull) {
+// 每次启动都从云端拉取最新数据（iOS standalone PWA 与 Safari localStorage 隔离）
+// 先用本地数据渲染页面，云端拉取成功后刷新
+if (localDataIsStale) {
   showToast('正在从云端恢复数据...');
 }
-cloudSync.pull(!forceCloudPull).then(success => {
+cloudSync.pull(false).then(success => {
   if (success) {
     ensureDraftCategory();
     renderCurrentPage();
     updateUndoBtnState();
-    if (forceCloudPull) {
+    if (localDataIsStale) {
       showToast('数据已恢复 ✓');
     }
-  } else if (forceCloudPull) {
-    showToast('云端恢复失败，请检查网络后刷新');
-    console.warn('[Init] Cloud pull failed, showing stale local data');
+  } else {
+    console.warn('[Init] Cloud pull failed, using local data');
   }
 });
 
