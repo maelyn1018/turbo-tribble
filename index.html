@@ -640,7 +640,8 @@ let store = {
   todos: [],
   assignments: {},
   diary: {},
-  completedLog: {}
+  completedLog: {},
+  storeVersion: Date.now()
 };
 
 // ===== Undo System =====
@@ -680,6 +681,7 @@ const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function save() {
+  store.storeVersion = Date.now(); // 每次保存递增版本号
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
   // 防抖云同步：操作停止30秒后推送，避免频繁卡顿
@@ -793,11 +795,11 @@ const cloudSync = {
       const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
       const cloudData = JSON.parse(content);
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
-        // 安全策略：云端数据条数 >= 本地才覆盖，防止旧云端数据覆盖本地新数据
-        const cloudTodoCount = cloudData.todos ? cloudData.todos.length : 0;
-        const localTodoCount = store.todos ? store.todos.length : 0;
-        if (cloudTodoCount < localTodoCount) {
-          console.warn(`[CloudSync] Cloud has ${cloudTodoCount} todos, local has ${localTodoCount} - keeping local data`);
+        // 安全策略：用 storeVersion 判断谁更新，云端版本 <= 本地则不覆盖
+        const cloudVer = cloudData.storeVersion || 0;
+        const localVer = store.storeVersion || 0;
+        if (cloudVer <= localVer && localVer > 0) {
+          console.warn(`[CloudSync] Cloud ver=${cloudVer}, local ver=${localVer} - keeping local data`);
           this.setStatus('synced', '已同步');
           return true;
         }
@@ -840,24 +842,26 @@ const cloudSync = {
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
-      // 推送前安全校验：先拉云端数据，如果云端比本地多则不推送（防止旧数据覆盖云端）
+      // 推送前安全校验：用 storeVersion 判断，云端更新则不推送并拉取
       try {
         const resp = await fetch(this.apiUrl, { headers: this.headers });
         if (resp.ok) {
           const data = await resp.json();
           const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
           const cloudData = JSON.parse(content);
-          if (cloudData && cloudData.todos) {
-            const cloudCount = cloudData.todos.length;
-            const localCount = store.todos ? store.todos.length : 0;
-            if (cloudCount > localCount) {
-              console.warn(`[CloudSync] Cloud has ${cloudCount} todos, local has ${localCount} - aborting push to protect cloud data`);
+          if (cloudData) {
+            const cloudVer = cloudData.storeVersion || 0;
+            const localVer = store.storeVersion || 0;
+            if (cloudVer > localVer) {
+              console.warn(`[CloudSync] Cloud ver=${cloudVer} > local ver=${localVer} - aborting push, pulling cloud`);
               this.setStatus('synced', '已同步');
               // 云端更新，拉取到本地
-              await migrateImagesToIDB(cloudData);
-              store = cloudData;
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-              renderCurrentPage();
+              if (Array.isArray(cloudData.categories)) {
+                await migrateImagesToIDB(cloudData);
+                store = cloudData;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+                renderCurrentPage();
+              }
               return;
             }
           }
