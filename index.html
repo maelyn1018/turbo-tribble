@@ -641,7 +641,7 @@ let store = {
   assignments: {},
   diary: {},
   completedLog: {},
-  storeVersion: Date.now()
+  storeVersion: 0  // 0表示未初始化，save()时才设真实值
 };
 
 // ===== Undo System =====
