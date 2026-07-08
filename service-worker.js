@@ -1,5 +1,5 @@
 // Service Worker - 日程管理 PWA
-const CACHE_VERSION = 'v35';
+const CACHE_VERSION = 'v36';
 const CACHE_NAME = `schedule-app-${CACHE_VERSION}`;
 
 // 需要缓存的静态资源列表
@@ -14,7 +14,7 @@ const STATIC_ASSETS = [
 
 // ===== 安装阶段：预缓存所有静态资源 =====
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing v33...');
+  console.log(`[SW] Installing ${CACHE_VERSION}...`);
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Caching static assets');
@@ -27,12 +27,12 @@ self.addEventListener('install', (event) => {
       });
     })
   );
-  self.skipWaiting();
+  self.skipWaiting(); // 立即激活，不等旧 SW 释放
 });
 
 // ===== 激活阶段：清理旧版本缓存 =====
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating v33...');
+  console.log(`[SW] Activating ${CACHE_VERSION}...`);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -45,7 +45,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim();
+  self.clients.claim(); // 立即控制所有页面
 });
 
 // ===== 请求拦截 =====

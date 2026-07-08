@@ -793,6 +793,14 @@ const cloudSync = {
       const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
       const cloudData = JSON.parse(content);
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
+        // 安全策略：云端数据条数 >= 本地才覆盖，防止旧云端数据覆盖本地新数据
+        const cloudTodoCount = cloudData.todos ? cloudData.todos.length : 0;
+        const localTodoCount = store.todos ? store.todos.length : 0;
+        if (cloudTodoCount < localTodoCount) {
+          console.warn(`[CloudSync] Cloud has ${cloudTodoCount} todos, local has ${localTodoCount} - keeping local data`);
+          this.setStatus('synced', '已同步');
+          return true;
+        }
         // 下载后：把 diary 中的 base64 图片拆分到 IndexedDB，store 只存 ID
         await migrateImagesToIDB(cloudData);
         store = cloudData;
