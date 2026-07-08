@@ -641,8 +641,7 @@ let store = {
   todos: [],
   assignments: {},
   diary: {},
-  completedLog: {},
-  storeVersion: 0  // 0表示未初始化，save()时才设真实值
+  completedLog: {}
 };
 
 // ===== Undo System =====
@@ -682,14 +681,13 @@ const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function save() {
-  store.storeVersion = Date.now(); // 每次保存递增版本号
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
-  // 防抖云同步：操作停止30秒后推送，避免频繁卡顿
+  _lastSaveTime = Date.now();
+  // 3秒防抖云同步：快速同步到云端，减少关App丢数据风险
   if (cloudSync._saveTimer) clearTimeout(cloudSync._saveTimer);
   cloudSync._saveTimer = setTimeout(() => {
     if (!cloudSync._syncing) cloudSync.pushNow().catch(() => {});
-  }, 30000);
+  }, 3000);
 }
 function load() {
   const d = localStorage.getItem(STORAGE_KEY);
@@ -801,14 +799,7 @@ const cloudSync = {
       if (!rawResp.ok) throw new Error(`Raw download ${rawResp.status}`);
       const cloudData = await rawResp.json();
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
-        // 安全策略：用 storeVersion 判断谁更新，云端版本 <= 本地则不覆盖
-        const cloudVer = cloudData.storeVersion || 0;
-        const localVer = store.storeVersion || 0;
-        if (cloudVer <= localVer && localVer > 0) {
-          console.warn(`[CloudSync] Cloud ver=${cloudVer}, local ver=${localVer} - keeping local data`);
-          this.setStatus('synced', '已同步');
-          return true;
-        }
+        // 单设备使用：云端数据直接覆盖本地，保证与云端一致
         // 下载后：把 diary 中的 base64 图片拆分到 IndexedDB，store 只存 ID
         await migrateImagesToIDB(cloudData);
         store = cloudData;
@@ -816,10 +807,9 @@ const cloudSync = {
         store.todos.forEach((t, i) => {
           if (typeof t.order !== 'number') { t.order = i; }
         });
-        store.storeVersion = cloudVer; // 保留云端版本号
         localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
         this.setStatus('synced', '已同步');
-        console.log(`[CloudSync] Pull success: ${cloudData.todos?.length} todos, ver=${cloudVer}`);
+        console.log(`[CloudSync] Pull success: ${cloudData.todos?.length} todos`);
         return true;
       } else {
         console.warn('[CloudSync] Cloud data invalid, using local');
@@ -849,32 +839,12 @@ const cloudSync = {
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
-      // 推送前安全校验：用 raw URL 读取云端数据（无1MB限制），用 API 获取 SHA
+      // 获取云端 SHA（用于后续 PUT），不做版本比较（单设备直接推）
       try {
-        const [rawCheck, apiCheck] = await Promise.all([
-          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`).catch(e => { console.warn('[CloudSync] Raw pre-check failed:', e.message); return { ok: false, json: async () => null }; }),
-          fetch(this.apiUrl, { headers: this.headers })
-        ]);
+        const apiCheck = await fetch(this.apiUrl, { headers: this.headers });
         if (apiCheck.ok) {
           const apiData = await apiCheck.json();
-          this._sha = apiData.sha; // 保存 SHA 用于后续 PUT
-          if (rawCheck.ok) {
-            const cloudData = await rawCheck.json();
-            const cloudVer = cloudData.storeVersion || 0;
-            const localVer = store.storeVersion || 0;
-            if (cloudVer > localVer) {
-              console.warn(`[CloudSync] Cloud ver=${cloudVer} > local ver=${localVer} - aborting push, pulling cloud`);
-              this.setStatus('synced', '已同步');
-              if (Array.isArray(cloudData.categories)) {
-                await migrateImagesToIDB(cloudData);
-                store = cloudData;
-                store.storeVersion = cloudVer;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-                renderCurrentPage();
-              }
-              return;
-            }
-          }
+          this._sha = apiData.sha;
         }
       } catch (e) {
         console.warn('[CloudSync] Pre-push check failed, proceeding with push:', e.message);
