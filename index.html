@@ -776,24 +776,28 @@ const cloudSync = {
   async pull(skipOverwrite = false) {
     try {
       this.setStatus('syncing', '同步中');
-      const resp = await fetch(this.apiUrl, { headers: this.headers });
-      if (resp.status === 404) {
+      // 用 raw URL 下载数据（无1MB大小限制），用 API 获取 SHA（用于后续 push）
+      const [rawResp, apiResp] = await Promise.all([
+        fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`, { headers: this.headers }),
+        fetch(this.apiUrl, { headers: this.headers })
+      ]);
+      if (apiResp.status === 404) {
         console.log('[CloudSync] data.json not found, creating...');
         this._sha = null;
         await this._putData();
         return true;
       }
-      if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
-      const data = await resp.json();
-      this._sha = data.sha;
+      if (!apiResp.ok) throw new Error(`GitHub API ${apiResp.status}`);
+      const apiData = await apiResp.json();
+      this._sha = apiData.sha;
       // If we have local data, only update SHA, don't overwrite
       if (skipOverwrite) {
         this.setStatus('synced', '已同步');
         console.log('[CloudSync] Pull success (SHA only, local preserved)');
         return true;
       }
-      const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-      const cloudData = JSON.parse(content);
+      if (!rawResp.ok) throw new Error(`Raw download ${rawResp.status}`);
+      const cloudData = await rawResp.json();
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
         // 安全策略：用 storeVersion 判断谁更新，云端版本 <= 本地则不覆盖
         const cloudVer = cloudData.storeVersion || 0;
@@ -810,9 +814,10 @@ const cloudSync = {
         store.todos.forEach((t, i) => {
           if (typeof t.order !== 'number') { t.order = i; }
         });
+        store.storeVersion = cloudVer; // 保留云端版本号
         localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
         this.setStatus('synced', '已同步');
-        console.log('[CloudSync] Pull success');
+        console.log(`[CloudSync] Pull success: ${cloudData.todos?.length} todos, ver=${cloudVer}`);
         return true;
       } else {
         console.warn('[CloudSync] Cloud data invalid, using local');
@@ -842,30 +847,32 @@ const cloudSync = {
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
-      // 推送前安全校验：用 storeVersion 判断，云端更新则不推送并拉取
+      // 推送前安全校验：用 raw URL 读取云端数据（无1MB限制），用 API 获取 SHA
       try {
-        const resp = await fetch(this.apiUrl, { headers: this.headers });
-        if (resp.ok) {
-          const data = await resp.json();
-          const content = decodeURIComponent(escape(atob(data.content.replace(/\n/g, ''))));
-          const cloudData = JSON.parse(content);
-          if (cloudData) {
+        const [rawCheck, apiCheck] = await Promise.all([
+          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`, { headers: this.headers }),
+          fetch(this.apiUrl, { headers: this.headers })
+        ]);
+        if (apiCheck.ok) {
+          const apiData = await apiCheck.json();
+          this._sha = apiData.sha; // 保存 SHA 用于后续 PUT
+          if (rawCheck.ok) {
+            const cloudData = await rawCheck.json();
             const cloudVer = cloudData.storeVersion || 0;
             const localVer = store.storeVersion || 0;
             if (cloudVer > localVer) {
               console.warn(`[CloudSync] Cloud ver=${cloudVer} > local ver=${localVer} - aborting push, pulling cloud`);
               this.setStatus('synced', '已同步');
-              // 云端更新，拉取到本地
               if (Array.isArray(cloudData.categories)) {
                 await migrateImagesToIDB(cloudData);
                 store = cloudData;
+                store.storeVersion = cloudVer;
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
                 renderCurrentPage();
               }
               return;
             }
           }
-          this._sha = data.sha; // 保存 SHA 用于后续 PUT
         }
       } catch (e) {
         console.warn('[CloudSync] Pre-push check failed, proceeding with push:', e.message);
