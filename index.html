@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713q'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260714a'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -3517,7 +3517,7 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<div id="syncLogToggle" onclick="const p=document.getElementById('syncLogPanel');p.classList.toggle('open');if(p.classList.contains('open'))_renderLogPanel();">📋</div>
+<div id="syncLogToggle" style="display:none" onclick="const p=document.getElementById('syncLogPanel');p.classList.toggle('open');if(p.classList.contains('open'))_renderLogPanel();">📋</div>
 <div id="syncLogPanel">
   <div id="syncLogHeader"><span>同步日志</span><button id="syncLogClear" onclick="_syncLog.length=0;_renderLogPanel();">清空</button></div>
   <div id="syncLogBody"></div>
