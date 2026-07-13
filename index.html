@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260714e'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260714f'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -1197,19 +1197,75 @@ const cloudSync = {
     if (typeof loadGalleryImages === 'function') loadGalleryImages();
   },
 
-  // 迁移日记图片到IndexedDB并刷新照片墙
+  // 异步加载日记图片（不阻塞主数据，加载失败也不影响使用）
   async _migrateAndRefreshImages() {
     try {
+      // 先迁移主数据中的base64图片到IndexedDB
       const migrated = await migrateImagesToIDB(store);
       if (migrated > 0) {
-        save(); // 保存引用变更（ID替代base64）
+        save();
         syncLog('sync', '迁移 ' + migrated + ' 张图片到本地存储');
       }
-      // 刷新照片墙
-      if (typeof loadGalleryImages === 'function') loadGalleryImages();
     } catch(e) {
       console.warn('[CloudSync] Image migration failed:', e.message);
-      syncLog('error', '图片迁移失败: ' + e.message);
+    }
+    // 异步下载云端图片（不await，不阻塞）
+    this._loadDiaryImagesAsync();
+    // 先尝试从IndexedDB加载已有的图片
+    if (typeof loadGalleryImages === 'function') loadGalleryImages();
+  },
+
+  // 真正异步加载图片：用 download_url 直接下载 diary-images.json
+  async _loadDiaryImagesAsync() {
+    try {
+      syncLog('sync', '开始下载日记图片...');
+      let imgData = null;
+      let sha = null;
+
+      // 方法1：API拿元信息 + download_url 直接下载
+      try {
+        const metaResp = await fetch('https://api.github.com/repos/' + this.REPO + '/contents/' + this.DIARY_IMG_PATH);
+        if (metaResp.ok) {
+          const meta = await metaResp.json();
+          sha = meta.sha;
+          if (meta.download_url) {
+            const dlResp = await fetch(meta.download_url + '?t=' + Date.now());
+            if (dlResp.ok) {
+              imgData = await dlResp.json();
+            }
+          }
+        }
+      } catch(e) {
+        console.warn('[CloudSync] Img download_url failed:', e.message);
+      }
+
+      // 方法2：raw URL 直接下载
+      if (!imgData) {
+        try {
+          const resp = await fetch('https://raw.githubusercontent.com/' + this.REPO + '/main/' + this.DIARY_IMG_PATH + '?t=' + Date.now());
+          if (resp.ok) imgData = await resp.json();
+        } catch(e) {
+          console.warn('[CloudSync] Img raw download failed:', e.message);
+        }
+      }
+
+      if (imgData) {
+        this._diaryImgSha = sha;
+        let loaded = 0;
+        for (const [imgId, base64] of Object.entries(imgData)) {
+          if (imgId && base64 && typeof base64 === 'string' && base64.startsWith('data:')) {
+            await imgDB.putImage(imgId, base64);
+            loaded++;
+          }
+        }
+        syncLog('sync', '图片下载完成: ' + loaded + ' 张');
+        if (typeof loadGalleryImages === 'function') loadGalleryImages();
+      } else {
+        syncLog('error', '图片下载失败，不影响使用');
+      }
+    } catch(e) {
+      console.warn('[CloudSync] Image load error:', e.message);
+      syncLog('error', '图片下载异常: ' + e.message);
     }
   },  },
 
@@ -1280,27 +1336,18 @@ const cloudSync = {
   // 推送主数据（不含图片）
   async _putMainData() {
     const pushStore = JSON.parse(JSON.stringify(store));
-    // 把IndexedDB中的图片数据嵌入diary，确保云端备份完整
+    // 确保日记图片只保留ID引用（不嵌入base64，保持文件小）
     for (const date of Object.keys(pushStore.diary || {})) {
       const entry = pushStore.diary[date];
       if (entry && entry.images) {
-        const newImages = [];
-        for (let i = 0; i < entry.images.length; i++) {
-          const img = entry.images[i];
+        entry.images = entry.images.map(img => {
           if (img && img.startsWith('data:')) {
-            // 本地还是base64（未迁移），生成ID并迁移到IDB
-            const imgId = 'img_' + date + '_' + Date.now() + '_' + i;
-            await imgDB.putImage(imgId, img);
-            newImages.push(imgId);
-          } else if (img && !img.startsWith('data:')) {
-            // ID引用，从IndexedDB取数据嵌入push payload
-            const imgData = await imgDB.getImage(img);
-            newImages.push(imgData || img);
-          } else {
-            newImages.push(img);
+            const imgId = 'img_' + date + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+            imgDB.putImage(imgId, img).catch(() => {});
+            return imgId;
           }
-        }
-        entry.images = newImages;
+          return img;
+        });
       }
     }
 
