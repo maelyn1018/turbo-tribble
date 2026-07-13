@@ -636,7 +636,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713d'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713e'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -782,10 +782,18 @@ const cloudSync = {
       this.setStatus('syncing', '同步中');
       // 用 raw URL 下载数据（无1MB大小限制，不带auth避免CORS预检），用 API 获取 SHA
       const timeout = (ms) => new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms));
-      const [rawResp, apiResp] = await Promise.all([
-        fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`).catch(e => { console.warn('[CloudSync] Raw fetch failed:', e.message); return { ok: false, status: 0, json: async () => null }; }),
-        fetch(this.apiUrl, { headers: this.headers })
-      ]);
+      const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+      let rawResp, apiResp;
+      try {
+        [rawResp, apiResp] = await withTimeout(Promise.all([
+          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`).catch(e => { console.warn('[CloudSync] Raw fetch failed:', e.message); return { ok: false, status: 0, json: async () => null }; }),
+          fetch(this.apiUrl, { headers: this.headers })
+        ]), 30000); // 30秒超时
+      } catch(timeoutErr) {
+        console.warn('[CloudSync] Pull timeout (30s), network may be slow');
+        this.setStatus('error', '同步超时');
+        return false;
+      }
       if (apiResp.status === 404) {
         console.log('[CloudSync] data.json not found, creating...');
         this._sha = null;
