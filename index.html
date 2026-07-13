@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260714d'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260714e'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -1032,32 +1032,39 @@ const cloudSync = {
 
   // 获取 GitHub 文件的 raw 数据和 SHA
   // 快速拉取：用 GitHub API 无认证 GET（公开仓库无需预检，数据始终最新，无CDN缓存问题）
-  async _fetchDataOnly(filePath, timeoutMs = 10000) {
-    // 方法1：API 无认证 GET（公开仓库，无 CORS 预检，数据始终最新无CDN缓存）
+  async _fetchDataOnly(filePath, timeoutMs = 15000) {
+    // 方法1：API获取元信息 + download_url直接下载（避免base64解码大文件，Safari友好）
     try {
-      const resp = await Promise.race([
-        fetch(`https://api.github.com/repos/${this.REPO}/contents/${filePath}`),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), timeoutMs))
+      const metaResp = await Promise.race([
+        fetch('https://api.github.com/repos/' + this.REPO + '/contents/' + filePath),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 8000))
       ]);
-      if (resp.ok) {
-        const apiData = await resp.json();
-        if (apiData.content) {
-          // 正确解码 UTF-8：atob 只支持 Latin-1，中文需要 TextDecoder
-          const binaryStr = atob(apiData.content.replace(/\n/g, ''));
+      if (metaResp.ok) {
+        const meta = await metaResp.json();
+        const sha = meta.sha;
+        if (meta.download_url) {
+          const dlResp = await fetch(meta.download_url + '?t=' + Date.now());
+          if (dlResp.ok) {
+            const data = await dlResp.json();
+            return { data, ok: true, sha };
+          }
+        }
+        // download_url 不可用时，尝试 base64 解码（仅小文件可行）
+        if (meta.content && meta.size < 300000) {
+          const binaryStr = atob(meta.content.replace(/\n/g, ''));
           const bytes = new Uint8Array(binaryStr.length);
           for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
           const text = new TextDecoder('utf-8').decode(bytes);
           const data = JSON.parse(text);
-          return { data, ok: true, sha: apiData.sha };
+          return { data, ok: true, sha };
         }
       }
-      console.warn('[CloudSync] API fetch failed, status:', resp.status);
     } catch(e) {
-      console.warn('[CloudSync] API fetch error:', e.message);
+      console.warn('[CloudSync] API+download failed:', e.message);
     }
-    // 方法2：回退到 raw URL（可能有CDN缓存，但至少能用）
+    // 方法2：直接raw URL（可能有CDN缓存，最后手段）
     try {
-      const resp = await fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${filePath}?t=${Date.now()}`);
+      const resp = await fetch('https://raw.githubusercontent.com/' + this.REPO + '/main/' + filePath + '?t=' + Date.now());
       if (resp.ok) {
         const data = await resp.json();
         return { data, ok: true };
