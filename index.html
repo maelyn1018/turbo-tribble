@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260714c'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260714d'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -1171,8 +1171,8 @@ const cloudSync = {
       this.setStatus('synced', '已同步');
       console.log(`[CloudSync] Pull success: ${store.todos.length} todos`); syncLog('sync', '拉取成功: ' + store.todos.length + ' 条待办, 7/13行程=' + (store.assignments?.['2026-07-13']?.length||0) + ' 项');
 
-      // 3. 异步加载日记图片（不阻塞UI）
-      this._loadDiaryImages();
+      // 3. 异步迁移图片到IndexedDB + 刷新照片墙
+      this._migrateAndRefreshImages();
       
       return true;
     } catch (e) {
@@ -1182,85 +1182,29 @@ const cloudSync = {
     }
   },
 
-  // 异步加载日记图片
+  // 日记图片现在直接包含在 data-v3.json 中，无需单独下载
+  // 图片通过 migrateImagesToIDB() 迁移到 IndexedDB
   async _loadDiaryImages() {
-    try {
-      // 先检查 IndexedDB 里已有多少图片，如果都有了就不需要重新下载
-      const existingImgs = await imgDB.getAll();
-      const existingIds = new Set(existingImgs.map(i => i.id));
-      
-      // 统计 diary 中引用了哪些图片
-      const neededIds = new Set();
-      for (const entry of Object.values(store.diary || {})) {
-        if (entry?.images) {
-          for (const img of entry.images) {
-            if (img && !img.startsWith('data:')) neededIds.add(img);
-          }
-        }
-      }
-      
-      const missingIds = [...neededIds].filter(id => !existingIds.has(id));
-      if (missingIds.length === 0) {
-        console.log('[CloudSync] All diary images already in IndexedDB');
-        syncLog('sync', '日记图片已是最新，无需下载');
-        if (typeof loadGalleryImages === 'function') loadGalleryImages();
-        return;
-      }
-      
-      syncLog('sync', '开始下载日记图片，缺 ' + missingIds.length + ' 张...');
-      let imgData = null;
-      let sha = null;
-
-      // 方法1：API获取 download_url，直接下载原始JSON（绕过base64大小限制）
-      try {
-        const metaResp = await fetch(`https://api.github.com/repos/${this.REPO}/contents/${this.DIARY_IMG_PATH}`);
-        if (metaResp.ok) {
-          const meta = await metaResp.json();
-          sha = meta.sha;
-          if (meta.download_url) {
-            const dlResp = await fetch(meta.download_url + '?t=' + Date.now());
-            if (dlResp.ok) {
-              imgData = await dlResp.json();
-            }
-          }
-        }
-      } catch(e) {
-        console.warn('[CloudSync] Diary img download_url failed:', e.message);
-      }
-
-      // 方法2：回退到 _fetchDataOnly（API + TextDecoder）
-      if (!imgData) {
-        const result = await this._fetchDataOnly(this.DIARY_IMG_PATH, 30000);
-        if (result.data) {
-          imgData = result.data;
-          sha = result.sha;
-        }
-      }
-
-      if (imgData) {
-        this._diaryImgSha = sha;
-        let loaded = 0;
-        for (const [imgId, base64] of Object.entries(imgData)) {
-          if (imgId && base64 && typeof base64 === 'string' && base64.startsWith('data:')) {
-            // 只写入 IndexedDB 中没有的
-            if (!existingIds.has(imgId)) {
-              await imgDB.putImage(imgId, base64);
-              loaded++;
-            }
-          }
-        }
-        console.log(`[CloudSync] Loaded ${loaded} diary images from cloud`);
-        syncLog('sync', '日记图片加载完成: ' + loaded + ' 张新下载');
-        if (typeof loadGalleryImages === 'function') loadGalleryImages();
-      } else {
-        console.warn('[CloudSync] Diary images: no data loaded');
-        syncLog('error', '日记图片加载失败: 无法获取云端数据');
-      }
-    } catch(e) {
-      console.warn('[CloudSync] Diary images load failed (non-critical):', e.message);
-      syncLog('error', '日记图片加载异常: ' + e.message);
-    }
+    // 已废弃，图片数据现在随 pull() 一起加载
+    syncLog('sync', '日记图片已随主数据加载');
+    if (typeof loadGalleryImages === 'function') loadGalleryImages();
   },
+
+  // 迁移日记图片到IndexedDB并刷新照片墙
+  async _migrateAndRefreshImages() {
+    try {
+      const migrated = await migrateImagesToIDB(store);
+      if (migrated > 0) {
+        save(); // 保存引用变更（ID替代base64）
+        syncLog('sync', '迁移 ' + migrated + ' 张图片到本地存储');
+      }
+      // 刷新照片墙
+      if (typeof loadGalleryImages === 'function') loadGalleryImages();
+    } catch(e) {
+      console.warn('[CloudSync] Image migration failed:', e.message);
+      syncLog('error', '图片迁移失败: ' + e.message);
+    }
+  },  },
 
   push() {
     if (this._debounceTimer) clearTimeout(this._debounceTimer);
@@ -1329,26 +1273,34 @@ const cloudSync = {
   // 推送主数据（不含图片）
   async _putMainData() {
     const pushStore = JSON.parse(JSON.stringify(store));
-    // 确保日记图片只保留ID引用（不嵌入base64）
-    Object.keys(pushStore.diary || {}).forEach(date => {
+    // 把IndexedDB中的图片数据嵌入diary，确保云端备份完整
+    for (const date of Object.keys(pushStore.diary || {})) {
       const entry = pushStore.diary[date];
       if (entry && entry.images) {
-        entry.images = entry.images.map(img => {
+        const newImages = [];
+        for (let i = 0; i < entry.images.length; i++) {
+          const img = entry.images[i];
           if (img && img.startsWith('data:')) {
             // 本地还是base64（未迁移），生成ID并迁移到IDB
-            const imgId = `img_${date}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-            imgDB.putImage(imgId, img).catch(() => {});
-            return imgId;
+            const imgId = 'img_' + date + '_' + Date.now() + '_' + i;
+            await imgDB.putImage(imgId, img);
+            newImages.push(imgId);
+          } else if (img && !img.startsWith('data:')) {
+            // ID引用，从IndexedDB取数据嵌入push payload
+            const imgData = await imgDB.getImage(img);
+            newImages.push(imgData || img);
+          } else {
+            newImages.push(img);
           }
-          return img; // 已经是ID引用
-        });
+        }
+        entry.images = newImages;
       }
-    });
+    }
 
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(pushStore))));
+    const content_b64 = btoa(unescape(encodeURIComponent(JSON.stringify(pushStore))));
     const body = {
-      message: `sync data ${new Date().toISOString().slice(0,19)}`,
-      content: content,
+      message: 'sync data ' + new Date().toISOString().slice(0,19),
+      content: content_b64,
       branch: this.BRANCH
     };
     if (this._sha) body.sha = this._sha;
@@ -1374,12 +1326,12 @@ const cloudSync = {
           headers: this.headers,
           body: JSON.stringify(body)
         });
-        if (!retryResp.ok) throw new Error(`GitHub PUT retry ${retryResp.status}`);
+        if (!retryResp.ok) throw new Error('GitHub PUT retry ' + retryResp.status);
         const retryData = await retryResp.json();
         this._sha = retryData.content.sha;
         return;
       }
-      throw new Error(`GitHub PUT ${resp.status}: ${errData.message || 'unknown'}`);
+      throw new Error('GitHub PUT ' + resp.status + ': ' + (errData.message || 'unknown'));
     }
     const result = await resp.json();
     this._sha = result.content.sha;
@@ -3218,25 +3170,26 @@ function renderMonthlyDiary() {
 
 // 全局：照片墙图片异步加载（带重试）
 let _galleryRetryCount = 0;
-function loadGalleryImages() {
+async function loadGalleryImages() {
   const refs = document.querySelectorAll('[data-img-ref]');
   if (!refs.length) return;
-  let missingCount = 0;
-  refs.forEach(async (el) => {
+  
+  const results = await Promise.all([...refs].map(async (el) => {
     const ref = el.getAttribute('data-img-ref');
     const data = await imgDB.getImage(ref);
     if (data) {
       el.src = data;
       const idx = parseInt(el.closest('[data-gallery-idx]')?.getAttribute('data-gallery-idx'));
       if (!isNaN(idx) && _monthPhotos[idx]) _monthPhotos[idx].src = data;
-    } else {
-      missingCount++;
+      return true;
     }
-  });
-  // 如果有图片未加载到，2秒后重试（等云端下载完成）
-  if (missingCount > 0 && _galleryRetryCount < 10) {
+    return false;
+  }));
+  
+  const missingCount = results.filter(r => !r).length;
+  if (missingCount > 0 && _galleryRetryCount < 15) {
     _galleryRetryCount++;
-    setTimeout(() => loadGalleryImages(), 2000);
+    setTimeout(() => loadGalleryImages(), 3000);
   } else {
     _galleryRetryCount = 0;
   }
