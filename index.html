@@ -646,7 +646,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713j'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713k'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -974,6 +974,14 @@ const cloudSync = {
         this.setStatus('error', '离线');
         return false;
       }
+      
+      // 云端数据量检查：如果云端明显少于本地，可能是被旧数据覆盖
+      if (cloudData.todos && store.todos.length > cloudData.todos.length + 10) {
+        console.warn(`[CloudSync] Cloud data suspicious: cloud=${cloudData.todos.length} < local=${store.todos.length}`);
+        // 不用云端的少数据，保留本地数据
+        this.setStatus('synced', '已同步(本地更新)');
+        return true;
+      }
 
       // 2. 智能合并：本地 + 云端
       const localCount = store.todos.length;
@@ -1055,6 +1063,23 @@ const cloudSync = {
       this.setStatus('synced', '已同步');
       return;
     }
+    // 防止覆盖云端更多数据：先检查云端数量
+    try {
+      const checkResult = await this._fetchDataOnly(this.FILE_PATH, 5000);
+      if (checkResult.ok && checkResult.data && checkResult.data.todos) {
+        const cloudCount = checkResult.data.todos.length;
+        if (cloudCount > store.todos.length) {
+          console.warn(`[CloudSync] Push blocked: cloud has ${cloudCount} > local ${store.todos.length}`);
+          // 云端数据更多，拉取云端数据合并
+          const merged = this.mergeData(store, checkResult.data);
+          store = merged;
+          save();
+          renderCurrentPage();
+          this.setStatus('synced', '已同步(云端更新)');
+          return;
+        }
+      }
+    } catch(e) {}
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
