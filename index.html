@@ -646,7 +646,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713k'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713l'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -920,22 +920,37 @@ const cloudSync = {
     return { data, sha, rawOk: rawResp.ok, apiOk: apiResp.ok, apiStatus: apiResp.status };
   },
 
-  // 快速拉取：仅用 raw URL（无 CORS 预检，移动端快 3-5 秒）
+  // 快速拉取：用 GitHub API 无认证 GET（公开仓库无需预检，数据始终最新，无CDN缓存问题）
   async _fetchDataOnly(filePath, timeoutMs = 10000) {
+    // 方法1：API 无认证 GET（公开仓库，无 CORS 预检，数据始终最新）
     try {
       const resp = await Promise.race([
-        fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${filePath}?t=${Date.now()}`),
+        fetch(`https://api.github.com/repos/${this.REPO}/contents/${filePath}`),
         new Promise((_, r) => setTimeout(() => r(new Error('timeout')), timeoutMs))
       ]);
+      if (resp.ok) {
+        const apiData = await resp.json();
+        if (apiData.content) {
+          const decoded = atob(apiData.content.replace(/\n/g, ''));
+          const data = JSON.parse(decoded);
+          return { data, ok: true, sha: apiData.sha };
+        }
+      }
+      console.warn('[CloudSync] API fetch failed, status:', resp.status);
+    } catch(e) {
+      console.warn('[CloudSync] API fetch error:', e.message);
+    }
+    // 方法2：回退到 raw URL（可能有CDN缓存，但至少能用）
+    try {
+      const resp = await fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${filePath}?t=${Date.now()}`);
       if (resp.ok) {
         const data = await resp.json();
         return { data, ok: true };
       }
-      return { data: null, ok: false, status: resp.status };
-    } catch(e) {
-      console.warn('[CloudSync] _fetchDataOnly failed:', e.message);
-      return { data: null, ok: false };
+    } catch(e2) {
+      console.warn('[CloudSync] Raw fetch also failed:', e2.message);
     }
+    return { data: null, ok: false };
   },
 
   async pull(skipOverwrite = false) {
