@@ -646,7 +646,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713l'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713m'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -931,8 +931,12 @@ const cloudSync = {
       if (resp.ok) {
         const apiData = await resp.json();
         if (apiData.content) {
-          const decoded = atob(apiData.content.replace(/\n/g, ''));
-          const data = JSON.parse(decoded);
+          // 正确解码 UTF-8：atob 只支持 Latin-1，中文需要 TextDecoder
+          const binaryStr = atob(apiData.content.replace(/\n/g, ''));
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+          const text = new TextDecoder('utf-8').decode(bytes);
+          const data = JSON.parse(text);
           return { data, ok: true, sha: apiData.sha };
         }
       }
