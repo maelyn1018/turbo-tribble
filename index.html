@@ -636,7 +636,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713e'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713f'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -786,7 +786,7 @@ const cloudSync = {
       let rawResp, apiResp;
       try {
         [rawResp, apiResp] = await withTimeout(Promise.all([
-          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}`).catch(e => { console.warn('[CloudSync] Raw fetch failed:', e.message); return { ok: false, status: 0, json: async () => null }; }),
+          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}?t=${Date.now()}`).catch(e => { console.warn('[CloudSync] Raw fetch failed:', e.message); return { ok: false, status: 0, json: async () => null }; }),
           fetch(this.apiUrl, { headers: this.headers })
         ]), 30000); // 30秒超时
       } catch(timeoutErr) {
