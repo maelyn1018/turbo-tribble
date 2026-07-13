@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713n'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713o'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -737,10 +737,18 @@ const _syncLogMax = 200;
 function syncLog(type, msg) {
   const now = new Date();
   const ts = now.toLocaleTimeString('zh-CN', {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-  const entry = {type, msg, ts};
+  const fullTs = now.toLocaleString('zh-CN', {hour12: false});
+  const entry = {type, msg, ts, fullTs};
   _syncLog.push(entry);
   if (_syncLog.length > _syncLogMax) _syncLog.shift();
   console.log(`[${type.toUpperCase()}] ${ts} ${msg}`);
+  // 持久化到 localStorage，便于排查
+  try {
+    const saved = JSON.parse(localStorage.getItem('sync_log') || '[]');
+    saved.push({type, msg, ts: fullTs});
+    if (saved.length > 200) saved.splice(0, saved.length - 200);
+    localStorage.setItem('sync_log', JSON.stringify(saved));
+  } catch(e) {}
   // Update panel if open
   const body = document.getElementById('syncLogBody');
   if (body && document.getElementById('syncLogPanel')?.classList.contains('open')) {
@@ -1120,7 +1128,19 @@ const cloudSync = {
       // 云端数据量检查：如果云端明显少于本地，可能是被旧数据覆盖
       if (cloudData.todos && store.todos.length > cloudData.todos.length + 10) {
         console.warn(`[CloudSync] Cloud data suspicious: cloud=${cloudData.todos.length} < local=${store.todos.length}`);
-        // 不用云端的少数据，保留本地数据
+        syncLog('error', '云端数据可疑: 云端=' + cloudData.todos.length + ' < 本地=' + store.todos.length + '，保留本地');
+        this.setStatus('synced', '已同步(本地更新)');
+        return true;
+      }
+      // 乱码检测：如果云端数据包含 atob 解码错误的字符，拒绝使用
+      let garbledCount = 0;
+      for (const t of (cloudData.todos || [])) {
+        const title = t.title || '';
+        if (/[æåäÃ½]/.test(title)) garbledCount++;
+      }
+      if (garbledCount > 3) {
+        console.warn(`[CloudSync] Cloud data garbled: ${garbledCount} todos have encoding errors`);
+        syncLog('error', '云端数据乱码: ' + garbledCount + ' 条待办编码错误，保留本地数据');
         this.setStatus('synced', '已同步(本地更新)');
         return true;
       }
