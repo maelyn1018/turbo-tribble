@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>日程管理</title>
 
 <!-- PWA Meta Tags -->
@@ -633,6 +636,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
+const APP_BUILD = '20260713b'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -2894,6 +2898,16 @@ _orderCounter = store.todos.reduce((max, t) => Math.max(max, t.order || 0), 0) +
   localStorage.setItem('img_migrated', '1');
 })();
 
+// 【版本检查】代码更新后触发一次刷新，确保加载最新JS逻辑
+// 只在代码版本比localStorage记录的更新时才刷新（防止缓存旧代码时循环刷新）
+const storedBuild = localStorage.getItem('app_build');
+if (storedBuild && storedBuild !== APP_BUILD && APP_BUILD > storedBuild) {
+  console.log(`[Init] Code updated (${storedBuild} → ${APP_BUILD}), reloading...`);
+  localStorage.setItem('app_build', APP_BUILD);
+  location.reload();
+}
+localStorage.setItem('app_build', APP_BUILD);
+
 // 检测本地数据是否为旧版/不完整（standalone PWA 的 localStorage 可能与浏览器隔离）
 // 真实数据有 200+ 条 todos，默认模板只有 9 条
 const localDataIsStale = store.todos.length < 50;
@@ -3003,3 +3017,23 @@ function goToCurrentWeek() {
   });
 })();
 </script>
+<script>
+// 注册 Service Worker（network-first策略，确保PWA每次启动都拿到最新代码）
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js').then(reg => {
+    console.log('[SW] Registered, scope:', reg.scope);
+    // 检测到新SW时自动激活
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          console.log('[SW] New version available, activating...');
+          newWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
+    });
+  }).catch(err => console.warn('[SW] Registration failed:', err));
+}
+</script>
+</body>
+</html>
