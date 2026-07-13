@@ -646,7 +646,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713h'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713i'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -756,14 +756,24 @@ async function migrateImagesToIDB(data) {
 const cloudSync = {
   GITHUB_TOKEN: 'ghp_lqdzGs9nj5wGB' + 'pIetx5eQZVMdX5z7u3l2dVn',
   REPO: 'maelyn1018/turbo-tribble',
-  FILE_PATH: 'data.json',
+  FILE_PATH: 'data-v2.json',      // 新文件路径，隔离旧PWA
+  OLD_FILE_PATH: 'data.json',      // 旧PWA使用的路径（用于迁移）
+  DIARY_IMG_PATH: 'diary-images.json', // 日记图片单独文件
   BRANCH: 'main',
   _sha: null,
+  _diaryImgSha: null,
   _debounceTimer: null,
   _syncing: false,
+  _migrated: false,  // 是否已完成从 data.json 的迁移
 
   get apiUrl() {
     return `https://api.github.com/repos/${this.REPO}/contents/${this.FILE_PATH}`;
+  },
+  get oldApiUrl() {
+    return `https://api.github.com/repos/${this.REPO}/contents/${this.OLD_FILE_PATH}`;
+  },
+  get diaryImgApiUrl() {
+    return `https://api.github.com/repos/${this.REPO}/contents/${this.DIARY_IMG_PATH}`;
   },
 
   get headers() {
@@ -779,7 +789,7 @@ const cloudSync = {
     const iconEl = document.getElementById('syncIcon');
     const textEl = document.getElementById('syncText');
     if (!el) return;
-    el.className = 'action-pill sync'; // 保留基础样式
+    el.className = 'action-pill sync';
     if (status === 'syncing') { el.classList.add('syncing'); iconEl.textContent = '🔄'; }
     else if (status === 'synced') { el.classList.add('synced'); iconEl.textContent = '✓'; }
     else if (status === 'error') { el.classList.add('error'); iconEl.textContent = '⚠'; }
@@ -787,122 +797,225 @@ const cloudSync = {
     textEl.textContent = text || '';
   },
 
+  // 【智能合并】合并本地和云端数据，保留两边的所有内容
+  mergeData(local, cloud) {
+    if (!cloud || !cloud.todos) return local;
+    if (!local || !local.todos) return cloud;
+    
+    const result = JSON.parse(JSON.stringify(cloud)); // 以云端为基底
+    
+    // 1. 合并 todos：取并集，相同ID取更新的版本
+    const cloudTodoMap = new Map(cloud.todos.map(t => [t.id, t]));
+    const localTodoMap = new Map(local.todos.map(t => [t.id, t]));
+    const mergedTodos = new Map(cloudTodoMap); // 先放云端的
+    
+    for (const [id, localTodo] of localTodoMap) {
+      const cloudTodo = cloudTodoMap.get(id);
+      if (!cloudTodo) {
+        // 本地独有 → 加入
+        mergedTodos.set(id, localTodo);
+      } else {
+        // 两边都有 → 取 updatedAt 更新的
+        const localUp = localTodo.updatedAt || 0;
+        const cloudUp = cloudTodo.updatedAt || 0;
+        // 如果本地 done 状态与云端不同，且本地 lastModified 更新，优先本地
+        if (localUp > cloudUp) {
+          mergedTodos.set(id, localTodo);
+        }
+        // 如果都没有 updatedAt，但本地 lastModified 更新，也优先本地
+        else if (localUp === 0 && cloudUp === 0 && (local.lastModified || 0) > (cloud.lastModified || 0)) {
+          mergedTodos.set(id, localTodo);
+        }
+      }
+    }
+    result.todos = Array.from(mergedTodos.values());
+    
+    // 2. 合并 categories：取并集
+    const cloudCatMap = new Map(cloud.categories.map(c => [c.id, c]));
+    for (const cat of local.categories) {
+      if (!cloudCatMap.has(cat.id)) {
+        result.categories.push(cat);
+      }
+    }
+    
+    // 3. 合并 diary：按日期，优先非空且更新的
+    if (local.diary && typeof local.diary === 'object') {
+      for (const [date, localEntry] of Object.entries(local.diary)) {
+        const cloudEntry = result.diary?.[date];
+        if (!cloudEntry || !(cloudEntry.summary || cloudEntry.notes)) {
+          // 云端没有或为空 → 用本地的
+          if (!result.diary) result.diary = {};
+          result.diary[date] = localEntry;
+        }
+      }
+    }
+    
+    // 4. 合并 assignments：按日期，优先非空的
+    if (local.assignments && typeof local.assignments === 'object') {
+      for (const [date, localAssgn] of Object.entries(local.assignments)) {
+        const cloudAssgn = result.assignments?.[date];
+        if (!cloudAssgn || (Array.isArray(localAssgn) && localAssgn.length > 0 && (!Array.isArray(cloudAssgn) || cloudAssgn.length === 0))) {
+          if (!result.assignments) result.assignments = {};
+          result.assignments[date] = localAssgn;
+        }
+      }
+    }
+    
+    // 5. lastModified 取更新的
+    result.lastModified = Math.max(local.lastModified || 0, cloud.lastModified || 0);
+    
+    return result;
+  },
+
+  // 获取 GitHub 文件的 raw 数据和 SHA
+  async _fetchFile(filePath, timeoutMs = 15000) {
+    const fetchWithTimeout = (url, opts, ms) => Promise.race([
+      fetch(url, opts).then(r => r).catch(e => {
+        console.warn('[CloudSync] Fetch failed:', url, e.message);
+        return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
+      }),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))
+    ]).catch(e => {
+      console.warn('[CloudSync] Fetch error:', url, e.message);
+      return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
+    });
+
+    const [rawResp, apiResp] = await Promise.all([
+      fetchWithTimeout(
+        `https://raw.githubusercontent.com/${this.REPO}/main/${filePath}?t=${Date.now()}`,
+        {},
+        timeoutMs
+      ),
+      fetchWithTimeout(
+        `https://api.github.com/repos/${this.REPO}/contents/${filePath}`,
+        { headers: this.headers },
+        10000
+      )
+    ]);
+
+    let sha = null;
+    if (apiResp.ok) {
+      try {
+        const apiData = await apiResp.json();
+        sha = apiData.sha;
+      } catch(e) {}
+    }
+
+    let data = null;
+    if (rawResp.ok) {
+      try {
+        data = await rawResp.json();
+      } catch(e) {
+        console.warn('[CloudSync] JSON parse failed for', filePath);
+      }
+    }
+
+    return { data, sha, rawOk: rawResp.ok, apiOk: apiResp.ok, apiStatus: apiResp.status };
+  },
+
   async pull(skipOverwrite = false) {
     try {
       this.setStatus('syncing', '同步中');
-      // 分别获取原始数据和API元数据，互不阻塞
-      const fetchWithTimeout = (url, opts, ms) => Promise.race([
-        fetch(url, opts).then(r => r).catch(e => {
-          console.warn('[CloudSync] Fetch failed:', url, e.message);
-          return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
-        }),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))
-      ]).catch(e => {
-        console.warn('[CloudSync] Fetch error:', url, e.message);
-        return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
-      });
-
-      // 并行获取：raw数据（大文件，需要超时）+ API元数据（小请求，需要超时）
-      const [rawResp, apiResp] = await Promise.all([
-        fetchWithTimeout(
-          `https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}?t=${Date.now()}`,
-          {}, // raw URL不带auth，无CORS预检问题
-          30000
-        ),
-        fetchWithTimeout(
-          this.apiUrl,
-          { headers: this.headers },
-          15000
-        )
-      ]);
-
-      // 从API获取SHA（即使API失败也不阻塞数据处理）
-      if (apiResp.ok) {
-        try {
-          const apiData = await apiResp.json();
-          if (apiData.sha) this._sha = apiData.sha;
-        } catch(e) {
-          console.warn('[CloudSync] API json parse failed (file too large?), will get SHA on push');
-        }
-      } else {
-        console.warn('[CloudSync] API metadata fetch failed, will get SHA on push');
-      }
-
-      // 如果没有本地数据且云端也没有，创建新文件
-      if (apiResp.status === 404 && !rawResp.ok) {
-        console.log('[CloudSync] data.json not found, creating...');
-        this._sha = null;
-        await this._putData();
-        return true;
-      }
-
+      
       if (skipOverwrite) {
+        // 只获取SHA，不覆盖本地
+        const result = await this._fetchFile(this.FILE_PATH, 10000);
+        if (result.sha) this._sha = result.sha;
         this.setStatus('synced', '已同步');
-        console.log('[CloudSync] Pull success (SHA only, local preserved)');
         return true;
       }
 
-      if (!rawResp.ok) {
-        console.warn('[CloudSync] Raw data fetch failed, cannot pull');
+      // 1. 先拉 data-v2.json（新的轻量文件，~36KB，秒级）
+      let cloudData = null;
+      const mainResult = await this._fetchFile(this.FILE_PATH, 15000);
+      if (mainResult.sha) this._sha = mainResult.sha;
+      
+      if (mainResult.data && mainResult.data.categories) {
+        cloudData = mainResult.data;
+        console.log(`[CloudSync] data-v2.json loaded: ${cloudData.todos?.length} todos`);
+      } else if (mainResult.apiStatus === 404) {
+        // data-v2.json 不存在（首次运行），尝试从旧 data.json 迁移
+        console.log('[CloudSync] data-v2.json not found, migrating from data.json...');
+        const oldResult = await this._fetchFile(this.OLD_FILE_PATH, 30000);
+        if (oldResult.data && oldResult.data.categories) {
+          cloudData = oldResult.data;
+          // 迁移图片到 IndexedDB
+          await migrateImagesToIDB(cloudData);
+          console.log(`[CloudSync] Migrated from data.json: ${cloudData.todos?.length} todos`);
+          this._migrated = true;
+        }
+        // 同时获取旧文件的SHA（防止后续push冲突）
+        if (oldResult.sha) {
+          // 保留旧SHA，但实际我们不会push到data.json
+        }
+      }
+
+      if (!cloudData) {
+        console.warn('[CloudSync] No cloud data found');
         this.setStatus('error', '离线');
         return false;
       }
-      const cloudData = await rawResp.json();
-      if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
-        // 【核心同步逻辑】判断云端数据是否应该覆盖本地
-        const cloudLM = cloudData.lastModified || 0;
-        const localLM = store.lastModified || 0;
-        const cloudCount = cloudData.todos.length;
-        const localCount = store.todos.length;
-        let shouldOverwrite = false;
-        let reason = '';
 
-        if (localCount < 50 && cloudCount >= 50) {
-          // 【数据恢复模式】本地数据太少（<50条）且云端有足够数据
-          // 无论时间戳如何，都用云端数据恢复（典型：localStorage被清、换设备、PWA缓存丢失）
-          shouldOverwrite = true;
-          reason = 'local stale, cloud has ' + cloudCount + ' todos (recovery mode)';
-        } else if (cloudLM > localLM && cloudCount >= localCount) {
-          // 云端时间戳新 且 数据量≥本地 → 正常同步场景
-          shouldOverwrite = true;
-          reason = 'cloud newer & more data';
-        } else if (cloudCount > localCount * 2) {
-          // 云端数据量远大于本地（>2倍）
-          shouldOverwrite = true;
-          reason = 'cloud has much more data';
-        } else if (cloudLM === 0 && localLM === 0 && cloudCount > localCount) {
-          shouldOverwrite = true;
-          reason = 'no lastModified, cloud has more data';
-        }
-        // else: 保留本地
-
-        if (shouldOverwrite) {
-          console.log(`[CloudSync] Cloud wins (${reason}) cloudLM:${cloudLM} localLM:${localLM} cloud:${cloudCount} local:${localCount}`);
-          await migrateImagesToIDB(cloudData);
-          store = cloudData;
-          store.todos.forEach((t, i) => {
-            if (typeof t.order !== 'number') { t.order = i; }
-          });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-          this.setStatus('synced', '已同步');
-          console.log(`[CloudSync] Pull success: ${cloudData.todos?.length} todos`);
-          return true;
-        } else {
-          // 本地比云端新或同齢→保留本地，不覆盖
-          console.log(`[CloudSync] Local wins (cloudLM:${cloudLM} localLM:${localLM} cloud:${cloudCount} local:${localCount}), keeping local`);
-          this._sha = apiData.sha; // 仍更新SHA，供下次push用
-          this.setStatus('synced', '已同步');
-          return true;
-        }
+      // 2. 智能合并：本地 + 云端
+      const localCount = store.todos.length;
+      const cloudCount = cloudData.todos?.length || 0;
+      
+      if (localCount < 50 && cloudCount >= 50) {
+        // 【数据恢复模式】本地数据太少，直接用云端
+        console.log(`[CloudSync] Recovery mode: local=${localCount}, cloud=${cloudCount}`);
+        await migrateImagesToIDB(cloudData);
+        store = cloudData;
+      } else if (localCount === 0 || (localCount <= 9 && cloudCount > 9)) {
+        // 本地几乎为空，用云端
+        await migrateImagesToIDB(cloudData);
+        store = cloudData;
       } else {
-        console.warn('[CloudSync] Cloud data invalid, using local');
-        this.setStatus('synced', '已同步');
-        return false;
+        // 【智能合并】保留两边数据
+        const merged = this.mergeData(store, cloudData);
+        await migrateImagesToIDB(merged);
+        store = merged;
+        console.log(`[CloudSync] Merged: local=${localCount} + cloud=${cloudCount} = ${store.todos.length} todos`);
       }
+      
+      // 确保所有 todo 有 order 字段
+      store.todos.forEach((t, i) => {
+        if (typeof t.order !== 'number') { t.order = i; }
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      
+      this.setStatus('synced', '已同步');
+      console.log(`[CloudSync] Pull success: ${store.todos.length} todos`);
+
+      // 3. 异步加载日记图片（不阻塞UI）
+      this._loadDiaryImages();
+      
+      return true;
     } catch (e) {
       console.warn('[CloudSync] Pull failed:', e.message);
       this.setStatus('error', '离线');
       return false;
+    }
+  },
+
+  // 异步加载日记图片
+  async _loadDiaryImages() {
+    try {
+      const result = await this._fetchFile(this.DIARY_IMG_PATH, 30000);
+      if (result.data) {
+        this._diaryImgSha = result.sha;
+        const imgData = result.data;
+        // 写入 IndexedDB
+        let loaded = 0;
+        for (const [imgId, base64] of Object.entries(imgData)) {
+          if (imgId && base64 && typeof base64 === 'string' && base64.startsWith('data:')) {
+            await imgDB.putImage(imgId, base64);
+            loaded++;
+          }
+        }
+        console.log(`[CloudSync] Loaded ${loaded} diary images from cloud`);
+      }
+    } catch(e) {
+      console.warn('[CloudSync] Diary images load failed (non-critical):', e.message);
     }
   },
 
@@ -912,44 +1025,37 @@ const cloudSync = {
   },
 
   async pushNow() {
-    if (this._syncing) return; // 防止重复调用卡死
+    if (this._syncing) return;
     if (this._debounceTimer) { clearTimeout(this._debounceTimer); this._debounceTimer = null; }
     await this._doPush();
   },
 
   async _doPush() {
     if (this._syncing) return;
-    // 【安全锁】本地数据量极少时（≤20条），大概率是默认模板或空数据，禁止推送到云端覆盖完整数据
     if (store.todos.length <= 20) {
-      console.warn(`[CloudSync] Push blocked: local has only ${store.todos.length} todos (likely default template), refusing to overwrite cloud`);
+      console.warn(`[CloudSync] Push blocked: only ${store.todos.length} todos`);
       this.setStatus('synced', '已同步');
       return;
     }
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
-      // 获取云端 SHA + 检查云端数据量（用于后续 PUT + 安全保护）
+      
+      // 获取 data-v2.json 的 SHA
       try {
         const apiCheck = await fetch(this.apiUrl, { headers: this.headers });
         if (apiCheck.ok) {
           const apiData = await apiCheck.json();
           this._sha = apiData.sha;
-          // 安全锁2：如果云端文件比本地数据大2倍以上，说明云端更完整，不覆盖
-          const cloudSize = apiData.size || 0;
-          const localJsonSize = JSON.stringify(store).length;
-          if (cloudSize > localJsonSize * 1.5 && store.todos.length < 300) {
-            console.warn(`[CloudSync] Push BLOCKED: cloud file ${cloudSize}B >> local ${localJsonSize}B, cloud data is more complete`);
-            this.setStatus('synced', '云端更完整');
-            return;
-          }
         }
-      } catch (e) {
-        console.warn('[CloudSync] Pre-push check failed, proceeding with push:', e.message);
-      }
-      // 加10秒超时保护
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
-      await Promise.race([this._putData(), timeout]);
+      } catch(e) {}
+      
+      // 推送 data-v2.json（不含图片，~36KB，秒级）
+      await this._putMainData();
       this.setStatus('synced', '已同步');
+      
+      // 异步推送日记图片（不阻塞）
+      this._pushDiaryImages();
     } catch (e) {
       console.warn('[CloudSync] Push failed:', e.message);
       this.setStatus('error', '离线');
@@ -958,19 +1064,21 @@ const cloudSync = {
     }
   },
 
-  async _putData() {
-    // 上传前：从 IndexedDB 读取图片数据，组装完整 store
-    const pushStore = JSON.parse(JSON.stringify(store)); // 深拷贝
-    const allImgs = await imgDB.getAll();
-    const imgMap = {};
-    allImgs.forEach(r => { imgMap[r.id] = r.data; });
-    // 把 diary 中的图片 ID 引用替换为实际 base64 数据
+  // 推送主数据（不含图片）
+  async _putMainData() {
+    const pushStore = JSON.parse(JSON.stringify(store));
+    // 确保日记图片只保留ID引用（不嵌入base64）
     Object.keys(pushStore.diary || {}).forEach(date => {
       const entry = pushStore.diary[date];
       if (entry && entry.images) {
-        entry.images = entry.images.map(ref => {
-          if (ref && !ref.startsWith('data:') && imgMap[ref]) return imgMap[ref];
-          return ref; // 已经是 base64 或找不到数据，原样保留
+        entry.images = entry.images.map(img => {
+          if (img && img.startsWith('data:')) {
+            // 本地还是base64（未迁移），生成ID并迁移到IDB
+            const imgId = `img_${date}_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+            imgDB.putImage(imgId, img).catch(() => {});
+            return imgId;
+          }
+          return img; // 已经是ID引用
         });
       }
     });
@@ -991,8 +1099,7 @@ const cloudSync = {
     if (!resp.ok) {
       const errData = await resp.json().catch(() => ({}));
       if (resp.status === 409 && !body._retried) {
-        console.log('[CloudSync] SHA conflict, re-fetching SHA only...');
-        // Only re-fetch SHA, don't overwrite local store
+        console.log('[CloudSync] SHA conflict, re-fetching...');
         const refetchResp = await fetch(this.apiUrl, { headers: this.headers });
         if (refetchResp.ok) {
           const refetchData = await refetchResp.json();
@@ -1014,7 +1121,60 @@ const cloudSync = {
     }
     const result = await resp.json();
     this._sha = result.content.sha;
-    console.log('[CloudSync] Push success');
+    console.log('[CloudSync] Main data push success');
+  },
+
+  // 异步推送日记图片
+  async _pushDiaryImages() {
+    try {
+      const allImgs = await imgDB.getAll();
+      if (allImgs.length === 0) return;
+      
+      const imgData = {};
+      allImgs.forEach(r => { imgData[r.id] = r.data; });
+      
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(imgData))));
+      const body = {
+        message: `sync diary images ${new Date().toISOString().slice(0,19)}`,
+        content: content,
+        branch: this.BRANCH
+      };
+      if (this._diaryImgSha) body.sha = this._diaryImgSha;
+
+      const resp = await fetch(this.diaryImgApiUrl, {
+        method: 'PUT',
+        headers: this.headers,
+        body: JSON.stringify(body)
+      });
+      if (resp.ok) {
+        const result = await resp.json();
+        this._diaryImgSha = result.content.sha;
+        console.log(`[CloudSync] Diary images push success (${allImgs.length} images)`);
+      } else if (resp.status === 409) {
+        // SHA冲突，重新获取
+        const refetchResp = await fetch(this.diaryImgApiUrl, { headers: this.headers });
+        if (refetchResp.ok) {
+          const refetchData = await refetchResp.json();
+          this._diaryImgSha = refetchData.sha;
+        }
+        body.sha = this._diaryImgSha;
+        body._retried = true;
+        const retryResp = await fetch(this.diaryImgApiUrl, {
+          method: 'PUT',
+          headers: this.headers,
+          body: JSON.stringify(body)
+        });
+        if (retryResp.ok) {
+          const result = await retryResp.json();
+          this._diaryImgSha = result.content.sha;
+          console.log(`[CloudSync] Diary images push success (retry, ${allImgs.length} images)`);
+        }
+      } else {
+        console.warn('[CloudSync] Diary images push failed (non-critical):', resp.status);
+      }
+    } catch(e) {
+      console.warn('[CloudSync] Diary images push error (non-critical):', e.message);
+    }
   }
 };
 
