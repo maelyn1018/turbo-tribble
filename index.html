@@ -800,22 +800,33 @@ const cloudSync = {
       if (!rawResp.ok) throw new Error(`Raw download ${rawResp.status}`);
       const cloudData = await rawResp.json();
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
-        // 【关键】比较本地与云端的 lastModified，只有云端更新才覆盖本地
-        // 这样：新增日程后关APP（push可能未完成），重开时本地数据比云端新→保留本地→不丢数据
+        // 【核心同步逻辑】判断云端数据是否应该覆盖本地
+        // 原则：本地是源，云端是备份；只有云端确定比本地更完整时才覆盖
         const cloudLM = cloudData.lastModified || 0;
         const localLM = store.lastModified || 0;
+        const cloudCount = cloudData.todos.length;
+        const localCount = store.todos.length;
         let shouldOverwrite = false;
-        if (cloudLM > localLM) {
-          // 云端时间戳比本地新→覆盖（如Safari数据被清后重开）
+        let reason = '';
+
+        if (cloudLM > localLM && cloudCount >= localCount) {
+          // 云端时间戳新 且 数据量≥本地 → 云端确实更新（正常同步场景）
           shouldOverwrite = true;
-        } else if (cloudLM === 0 && localLM === 0) {
-          // 两边都没有lastModified（旧数据或首次部署），用数据量兜底：更多todos = 更完整
-          shouldOverwrite = cloudData.todos.length > store.todos.length;
+          reason = 'cloud newer & more data';
+        } else if (cloudCount > localCount * 2) {
+          // 云端数据量远大于本地（>2倍）→ 本地大概率是默认模板或被清过
+          // 典型场景：localStorage被清→APP初始化9条默认模板→pull发现云端有300+条
+          shouldOverwrite = true;
+          reason = 'cloud has much more data';
+        } else if (cloudLM === 0 && localLM === 0 && cloudCount > localCount) {
+          // 两边都没有lastModified，用数据量兜底
+          shouldOverwrite = true;
+          reason = 'no lastModified, cloud has more data';
         }
-        // else: localLM >= cloudLM 且不全为0 → 本地更新，保留本地
+        // else: 保留本地（本地数据更新，或数据量相当但本地时间戳更新）
 
         if (shouldOverwrite) {
-          console.log(`[CloudSync] Cloud data wins (cloudLM:${cloudLM} localLM:${localLM} cloudTodos:${cloudData.todos.length} localTodos:${store.todos.length}), overwriting local`);
+          console.log(`[CloudSync] Cloud wins (${reason}) cloudLM:${cloudLM} localLM:${localLM} cloud:${cloudCount} local:${localCount}`);
           await migrateImagesToIDB(cloudData);
           store = cloudData;
           store.todos.forEach((t, i) => {
@@ -827,7 +838,7 @@ const cloudSync = {
           return true;
         } else {
           // 本地比云端新或同齢→保留本地，不覆盖
-          console.log(`[CloudSync] Local wins (cloudLM:${cloudLM} localLM:${localLM} cloudTodos:${cloudData.todos.length} localTodos:${store.todos.length}), keeping local`);
+          console.log(`[CloudSync] Local wins (cloudLM:${cloudLM} localLM:${localLM} cloud:${cloudCount} local:${localCount}), keeping local`);
           this._sha = apiData.sha; // 仍更新SHA，供下次push用
           this.setStatus('synced', '已同步');
           return true;
@@ -857,6 +868,12 @@ const cloudSync = {
 
   async _doPush() {
     if (this._syncing) return;
+    // 【安全锁】本地数据量极少时（≤20条），大概率是默认模板或空数据，禁止推送到云端覆盖完整数据
+    if (store.todos.length <= 20) {
+      console.warn(`[CloudSync] Push blocked: local has only ${store.todos.length} todos (likely default template), refusing to overwrite cloud`);
+      this.setStatus('synced', '已同步');
+      return;
+    }
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
