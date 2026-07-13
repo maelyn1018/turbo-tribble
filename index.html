@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260714f'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260714g'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -1267,7 +1267,7 @@ const cloudSync = {
       console.warn('[CloudSync] Image load error:', e.message);
       syncLog('error', '图片下载异常: ' + e.message);
     }
-  },  },
+  },
 
   push() {
     if (this._debounceTimer) clearTimeout(this._debounceTimer);
