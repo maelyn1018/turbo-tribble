@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260714b'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260714c'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -1185,11 +1185,33 @@ const cloudSync = {
   // 异步加载日记图片
   async _loadDiaryImages() {
     try {
-      syncLog('sync', '开始加载日记图片...');
+      // 先检查 IndexedDB 里已有多少图片，如果都有了就不需要重新下载
+      const existingImgs = await imgDB.getAll();
+      const existingIds = new Set(existingImgs.map(i => i.id));
+      
+      // 统计 diary 中引用了哪些图片
+      const neededIds = new Set();
+      for (const entry of Object.values(store.diary || {})) {
+        if (entry?.images) {
+          for (const img of entry.images) {
+            if (img && !img.startsWith('data:')) neededIds.add(img);
+          }
+        }
+      }
+      
+      const missingIds = [...neededIds].filter(id => !existingIds.has(id));
+      if (missingIds.length === 0) {
+        console.log('[CloudSync] All diary images already in IndexedDB');
+        syncLog('sync', '日记图片已是最新，无需下载');
+        if (typeof loadGalleryImages === 'function') loadGalleryImages();
+        return;
+      }
+      
+      syncLog('sync', '开始下载日记图片，缺 ' + missingIds.length + ' 张...');
       let imgData = null;
       let sha = null;
 
-      // 方法1：API获取元信息（含 download_url），再直接下载raw JSON（绕过base64大小限制）
+      // 方法1：API获取 download_url，直接下载原始JSON（绕过base64大小限制）
       try {
         const metaResp = await fetch(`https://api.github.com/repos/${this.REPO}/contents/${this.DIARY_IMG_PATH}`);
         if (metaResp.ok) {
@@ -1203,10 +1225,10 @@ const cloudSync = {
           }
         }
       } catch(e) {
-        console.warn('[CloudSync] Diary img method1 failed:', e.message);
+        console.warn('[CloudSync] Diary img download_url failed:', e.message);
       }
 
-      // 方法2：回退到 _fetchDataOnly
+      // 方法2：回退到 _fetchDataOnly（API + TextDecoder）
       if (!imgData) {
         const result = await this._fetchDataOnly(this.DIARY_IMG_PATH, 30000);
         if (result.data) {
@@ -1220,13 +1242,15 @@ const cloudSync = {
         let loaded = 0;
         for (const [imgId, base64] of Object.entries(imgData)) {
           if (imgId && base64 && typeof base64 === 'string' && base64.startsWith('data:')) {
-            await imgDB.putImage(imgId, base64);
-            loaded++;
+            // 只写入 IndexedDB 中没有的
+            if (!existingIds.has(imgId)) {
+              await imgDB.putImage(imgId, base64);
+              loaded++;
+            }
           }
         }
         console.log(`[CloudSync] Loaded ${loaded} diary images from cloud`);
-        syncLog('sync', '日记图片加载完成: ' + loaded + ' 张');
-        // 图片加载完成后，触发照片墙刷新
+        syncLog('sync', '日记图片加载完成: ' + loaded + ' 张新下载');
         if (typeof loadGalleryImages === 'function') loadGalleryImages();
       } else {
         console.warn('[CloudSync] Diary images: no data loaded');
@@ -2995,7 +3019,7 @@ function renderDiaryImages(images) {
   // 先渲染占位，再异步加载图片数据
   container.innerHTML = images.map((imgRef, idx) => `
     <div class="diary-img-item" data-img-idx="${idx}">
-      <img src="" alt="diary image" style="background:#f0f0f0">
+      <img src="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23e8e8e8%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23bbb%22 font-size=%2214%22>加载中</text></svg>" alt="diary image" style="background:#f0f0f0">
       <div class="img-delete" onclick="deleteDiaryImage(${idx})">×</div>
     </div>
   `).join('');
@@ -3131,7 +3155,7 @@ function renderMonthlyDiary() {
     if (entry && entry.images && entry.images.length > 0) {
       entry.images.forEach(img => {
         const isRef = img && !img.startsWith('data:');
-        photoItems.push({ src: isRef ? '' : img, ref: isRef ? img : null, date: dd.date, dateLabel: `${cm+1}/${dd.day}` });
+        photoItems.push({ src: isRef ? 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23e8e8e8%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 text-anchor=%22middle%22 fill=%22%23bbb%22 font-size=%2214%22>加载中</text></svg>' : img, ref: isRef ? img : null, date: dd.date, dateLabel: `${cm+1}/${dd.day}` });
       });
     }
   });
@@ -3149,33 +3173,8 @@ function renderMonthlyDiary() {
     galleryHtml = '<div class="md-gallery-empty">本月暂无照片 📷</div>';
   }
   
-  // 异步加载 gallery 中的 ID 引用图片（带重试，等云端图片下载完成）
-  let _galleryRetryCount = 0;
-  function loadGalleryImages() {
-    const refs = document.querySelectorAll('[data-img-ref]');
-    if (!refs.length) return;
-    let loadedCount = 0;
-    let missingCount = 0;
-    refs.forEach(async (el) => {
-      const ref = el.getAttribute('data-img-ref');
-      const data = await imgDB.getImage(ref);
-      if (data) {
-        el.src = data;
-        loadedCount++;
-        const idx = parseInt(el.closest('[data-gallery-idx]')?.getAttribute('data-gallery-idx'));
-        if (!isNaN(idx) && _monthPhotos[idx]) _monthPhotos[idx].src = data;
-      } else {
-        missingCount++;
-      }
-    });
-    // 如果有图片未加载到，2秒后重试（等云端下载完成）
-    if (missingCount > 0 && _galleryRetryCount < 5) {
-      _galleryRetryCount++;
-      setTimeout(() => loadGalleryImages(), 2000);
-    } else {
-      _galleryRetryCount = 0; // 重置
-    }
-  }
+  // loadGalleryImages 定义为全局，方便 _loadDiaryImages 完成后调用
+  // （在下方已定义为全局函数）
   
   // 每日总结列表（倒序）
   const summaries = dayData.filter(dd => store.diary[dd.date]?.summary).reverse();
@@ -3215,6 +3214,32 @@ function renderMonthlyDiary() {
 
   // 异步加载 gallery 中的 ID 引用图片
   loadGalleryImages();
+}
+
+// 全局：照片墙图片异步加载（带重试）
+let _galleryRetryCount = 0;
+function loadGalleryImages() {
+  const refs = document.querySelectorAll('[data-img-ref]');
+  if (!refs.length) return;
+  let missingCount = 0;
+  refs.forEach(async (el) => {
+    const ref = el.getAttribute('data-img-ref');
+    const data = await imgDB.getImage(ref);
+    if (data) {
+      el.src = data;
+      const idx = parseInt(el.closest('[data-gallery-idx]')?.getAttribute('data-gallery-idx'));
+      if (!isNaN(idx) && _monthPhotos[idx]) _monthPhotos[idx].src = data;
+    } else {
+      missingCount++;
+    }
+  });
+  // 如果有图片未加载到，2秒后重试（等云端下载完成）
+  if (missingCount > 0 && _galleryRetryCount < 10) {
+    _galleryRetryCount++;
+    setTimeout(() => loadGalleryImages(), 2000);
+  } else {
+    _galleryRetryCount = 0;
+  }
 }
 
 function changeMonthDiary(delta) {
