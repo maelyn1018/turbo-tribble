@@ -728,7 +728,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713o'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713p'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 
 // ===== Sync Logger =====
@@ -835,9 +835,22 @@ function load() {
   const d = localStorage.getItem(STORAGE_KEY);
   if (d) {
     store = JSON.parse(d);
+    // 乱码检测：本地数据如果含乱码字符，清除本地强制从云端拉取
+    let garbledCount = 0;
+    for (const t of (store.todos || [])) {
+      const title = t.title || '';
+      if (/[æåäÃ½Åøñ]/.test(title)) garbledCount++;
+    }
+    if (garbledCount > 3) {
+      console.warn(`[Load] Local data garbled: ${garbledCount} todos have encoding errors, clearing local`);
+      syncLog('error', '本地数据乱码: ' + garbledCount + ' 条待办编码错误，清除本地数据');
+      localStorage.removeItem(STORAGE_KEY);
+      store = null;
+      return false;
+    }
     // Ensure all todos have order field
     let needSave = false;
-    store.todos.forEach((t, i) => {
+    (store.todos || []).forEach((t, i) => {
       if (typeof t.order !== 'number') { t.order = i; needSave = true; }
     });
     if (needSave) save();
@@ -883,8 +896,9 @@ async function migrateImagesToIDB(data) {
 const cloudSync = {
   GITHUB_TOKEN: 'ghp_lqdzGs9nj5wGB' + 'pIetx5eQZVMdX5z7u3l2dVn',
   REPO: 'maelyn1018/turbo-tribble',
-  FILE_PATH: 'data-v2.json',      // 新文件路径，隔离旧PWA
-  OLD_FILE_PATH: 'data.json',      // 旧PWA使用的路径（用于迁移）
+  FILE_PATH: 'data-v3.json',      // 新文件路径，隔离旧PWA(含乱码修复)
+  OLD_FILE_PATH: 'data-v2.json',   // 旧版本文件（用于迁移）
+  LEGACY_FILE_PATH: 'data.json',  // 最旧版本（用于迁移）
   DIARY_IMG_PATH: 'diary-images.json', // 日记图片单独文件
   BRANCH: 'main',
   _sha: null,
@@ -1005,54 +1019,9 @@ const cloudSync = {
   },
 
   // 获取 GitHub 文件的 raw 数据和 SHA
-  async _fetchFile(filePath, timeoutMs = 15000) {
-    const fetchWithTimeout = (url, opts, ms) => Promise.race([
-      fetch(url, opts).then(r => r).catch(e => {
-        console.warn('[CloudSync] Fetch failed:', url, e.message);
-        return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
-      }),
-      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))
-    ]).catch(e => {
-      console.warn('[CloudSync] Fetch error:', url, e.message);
-      return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
-    });
-
-    const [rawResp, apiResp] = await Promise.all([
-      fetchWithTimeout(
-        `https://raw.githubusercontent.com/${this.REPO}/main/${filePath}?t=${Date.now()}`,
-        {},
-        timeoutMs
-      ),
-      fetchWithTimeout(
-        `https://api.github.com/repos/${this.REPO}/contents/${filePath}`,
-        { headers: this.headers },
-        10000
-      )
-    ]);
-
-    let sha = null;
-    if (apiResp.ok) {
-      try {
-        const apiData = await apiResp.json();
-        sha = apiData.sha;
-      } catch(e) {}
-    }
-
-    let data = null;
-    if (rawResp.ok) {
-      try {
-        data = await rawResp.json();
-      } catch(e) {
-        console.warn('[CloudSync] JSON parse failed for', filePath);
-      }
-    }
-
-    return { data, sha, rawOk: rawResp.ok, apiOk: apiResp.ok, apiStatus: apiResp.status };
-  },
-
   // 快速拉取：用 GitHub API 无认证 GET（公开仓库无需预检，数据始终最新，无CDN缓存问题）
   async _fetchDataOnly(filePath, timeoutMs = 10000) {
-    // 方法1：API 无认证 GET（公开仓库，无 CORS 预检，数据始终最新）
+    // 方法1：API 无认证 GET（公开仓库，无 CORS 预检，数据始终最新无CDN缓存）
     try {
       const resp = await Promise.race([
         fetch(`https://api.github.com/repos/${this.REPO}/contents/${filePath}`),
@@ -1094,13 +1063,13 @@ const cloudSync = {
       
       if (skipOverwrite) {
         // 只获取SHA，不覆盖本地
-        const result = await this._fetchFile(this.FILE_PATH, 10000);
+        const result = await this._fetchDataOnly(this.FILE_PATH, 10000);
         if (result.sha) this._sha = result.sha;
         this.setStatus('synced', '已同步');
         return true;
       }
 
-      // 1. 用 raw URL 快速拉 data-v2.json（无 CORS 预检，秒级）
+      // 1. 用 API 无认证拉 data-v3.json（无 CORS 预检，秒级，无CDN缓存）
       let cloudData = null;
       const mainResult = await this._fetchDataOnly(this.FILE_PATH, 10000);
       
@@ -1109,13 +1078,23 @@ const cloudSync = {
         console.log(`[CloudSync] data-v2.json loaded: ${cloudData.todos?.length} todos`); syncLog('data', '云端数据: ' + (cloudData.todos?.length||0) + ' 条待办, ' + (Object.keys(cloudData.assignments||{}).length) + ' 天行程');
       } else if (mainResult.status === 404 || !mainResult.ok) {
         // data-v2.json 不存在或获取失败，尝试从旧 data.json 迁移
-        console.log('[CloudSync] data-v2.json not found, migrating from data.json...');
+        console.log('[CloudSync] data-v3.json not found, migrating from data-v2.json...');
         const oldResult = await this._fetchDataOnly(this.OLD_FILE_PATH, 15000);
         if (oldResult.ok && oldResult.data && oldResult.data.categories) {
           cloudData = oldResult.data;
           await migrateImagesToIDB(cloudData);
-          console.log(`[CloudSync] Migrated from data.json: ${cloudData.todos?.length} todos`);
+          console.log(`[CloudSync] Migrated from data-v2.json: ${cloudData.todos?.length} todos`);
           this._migrated = true;
+        }
+        // 再尝试从最旧版 data.json 迁移
+        if (!cloudData && this.LEGACY_FILE_PATH) {
+          const legacyResult = await this._fetchDataOnly(this.LEGACY_FILE_PATH, 15000);
+          if (legacyResult.ok && legacyResult.data && legacyResult.data.categories) {
+            cloudData = legacyResult.data;
+            await migrateImagesToIDB(cloudData);
+            console.log(`[CloudSync] Migrated from data.json: ${cloudData.todos?.length} todos`);
+            this._migrated = true;
+          }
         }
       }
 
@@ -1188,7 +1167,7 @@ const cloudSync = {
   // 异步加载日记图片
   async _loadDiaryImages() {
     try {
-      const result = await this._fetchFile(this.DIARY_IMG_PATH, 30000);
+      const result = await this._fetchDataOnly(this.DIARY_IMG_PATH, 30000);
       if (result.data) {
         this._diaryImgSha = result.sha;
         const imgData = result.data;
