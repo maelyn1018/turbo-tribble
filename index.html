@@ -646,7 +646,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713g'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713h'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -790,36 +790,63 @@ const cloudSync = {
   async pull(skipOverwrite = false) {
     try {
       this.setStatus('syncing', '同步中');
-      // 用 raw URL 下载数据（无1MB大小限制，不带auth避免CORS预检），用 API 获取 SHA
-      const timeout = (ms) => new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms));
-      const withTimeout = (promise, ms) => Promise.race([promise, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
-      let rawResp, apiResp;
-      try {
-        [rawResp, apiResp] = await withTimeout(Promise.all([
-          fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}?t=${Date.now()}`).catch(e => { console.warn('[CloudSync] Raw fetch failed:', e.message); return { ok: false, status: 0, json: async () => null }; }),
-          fetch(this.apiUrl, { headers: this.headers })
-        ]), 30000); // 30秒超时
-      } catch(timeoutErr) {
-        console.warn('[CloudSync] Pull timeout (30s), network may be slow');
-        this.setStatus('error', '同步超时');
-        return false;
+      // 分别获取原始数据和API元数据，互不阻塞
+      const fetchWithTimeout = (url, opts, ms) => Promise.race([
+        fetch(url, opts).then(r => r).catch(e => {
+          console.warn('[CloudSync] Fetch failed:', url, e.message);
+          return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
+        }),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))
+      ]).catch(e => {
+        console.warn('[CloudSync] Fetch error:', url, e.message);
+        return { ok: false, status: 0, json: async () => ({}), text: async () => '' };
+      });
+
+      // 并行获取：raw数据（大文件，需要超时）+ API元数据（小请求，需要超时）
+      const [rawResp, apiResp] = await Promise.all([
+        fetchWithTimeout(
+          `https://raw.githubusercontent.com/${this.REPO}/main/${this.FILE_PATH}?t=${Date.now()}`,
+          {}, // raw URL不带auth，无CORS预检问题
+          30000
+        ),
+        fetchWithTimeout(
+          this.apiUrl,
+          { headers: this.headers },
+          15000
+        )
+      ]);
+
+      // 从API获取SHA（即使API失败也不阻塞数据处理）
+      if (apiResp.ok) {
+        try {
+          const apiData = await apiResp.json();
+          if (apiData.sha) this._sha = apiData.sha;
+        } catch(e) {
+          console.warn('[CloudSync] API json parse failed (file too large?), will get SHA on push');
+        }
+      } else {
+        console.warn('[CloudSync] API metadata fetch failed, will get SHA on push');
       }
-      if (apiResp.status === 404) {
+
+      // 如果没有本地数据且云端也没有，创建新文件
+      if (apiResp.status === 404 && !rawResp.ok) {
         console.log('[CloudSync] data.json not found, creating...');
         this._sha = null;
         await this._putData();
         return true;
       }
-      if (!apiResp.ok) throw new Error(`GitHub API ${apiResp.status}`);
-      const apiData = await apiResp.json();
-      this._sha = apiData.sha;
-      // If we have local data, only update SHA, don't overwrite
+
       if (skipOverwrite) {
         this.setStatus('synced', '已同步');
         console.log('[CloudSync] Pull success (SHA only, local preserved)');
         return true;
       }
-      if (!rawResp.ok) throw new Error(`Raw download ${rawResp.status}`);
+
+      if (!rawResp.ok) {
+        console.warn('[CloudSync] Raw data fetch failed, cannot pull');
+        this.setStatus('error', '离线');
+        return false;
+      }
       const cloudData = await rawResp.json();
       if (cloudData && typeof cloudData === 'object' && Array.isArray(cloudData.categories)) {
         // 【核心同步逻辑】判断云端数据是否应该覆盖本地
@@ -901,12 +928,20 @@ const cloudSync = {
     this._syncing = true;
     try {
       this.setStatus('syncing', '备份中');
-      // 获取云端 SHA（用于后续 PUT），不做版本比较（单设备直接推）
+      // 获取云端 SHA + 检查云端数据量（用于后续 PUT + 安全保护）
       try {
         const apiCheck = await fetch(this.apiUrl, { headers: this.headers });
         if (apiCheck.ok) {
           const apiData = await apiCheck.json();
           this._sha = apiData.sha;
+          // 安全锁2：如果云端文件比本地数据大2倍以上，说明云端更完整，不覆盖
+          const cloudSize = apiData.size || 0;
+          const localJsonSize = JSON.stringify(store).length;
+          if (cloudSize > localJsonSize * 1.5 && store.todos.length < 300) {
+            console.warn(`[CloudSync] Push BLOCKED: cloud file ${cloudSize}B >> local ${localJsonSize}B, cloud data is more complete`);
+            this.setStatus('synced', '云端更完整');
+            return;
+          }
         }
       } catch (e) {
         console.warn('[CloudSync] Pre-push check failed, proceeding with push:', e.message);
