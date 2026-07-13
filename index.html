@@ -375,6 +375,47 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 #syncStatus.error{background:rgba(255,59,48,.1);color:var(--danger)}
 @keyframes syncSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 #syncStatus.syncing #syncIcon{display:inline-block;animation:syncSpin 1s linear infinite}
+
+/* ===== Sync Log Panel ===== */
+#syncLogToggle {
+  position: fixed; bottom: 70px; right: 12px; z-index: 9999;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);
+  border: 1px solid rgba(0,0,0,0.1); display: flex; align-items: center;
+  justify-content: center; font-size: 16px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12); transition: transform 0.2s;
+}
+#syncLogToggle:active { transform: scale(0.9); }
+#syncLogPanel {
+  position: fixed; bottom: 110px; right: 12px; z-index: 9998;
+  width: min(380px, calc(100vw - 24px)); max-height: 50vh;
+  background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+  border-radius: 16px; border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15); display: none;
+  flex-direction: column; overflow: hidden;
+}
+#syncLogPanel.open { display: flex; }
+#syncLogHeader {
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  color: #333; border-bottom: 1px solid rgba(0,0,0,0.06);
+  display: flex; justify-content: space-between; align-items: center;
+}
+#syncLogClear { font-size: 12px; color: #999; cursor: pointer; border: none; background: none; }
+#syncLogBody {
+  flex: 1; overflow-y: auto; padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+}
+.log-entry {
+  padding: 4px 14px; font-size: 11px; font-family: 'SF Mono', 'Menlo', monospace;
+  line-height: 1.5; border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.log-entry .log-time { color: #999; margin-right: 6px; }
+.log-entry.log-sync { color: #007AFF; }
+.log-entry.log-data { color: #34C759; }
+.log-entry.log-error { color: #FF3B30; background: rgba(255,59,48,0.05); }
+.log-entry.log-user { color: #FF9500; }
+.log-entry.log-system { color: #5856D6; }
+
 </style>
 </head>
 <body>
@@ -578,7 +619,48 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
     <button id="restoreRetryBtn" style="display:none;margin-top:20px;padding:10px 28px;background:#4DB8E8;color:#fff;border:none;border-radius:20px;font-size:16px;cursor:pointer;" onclick="manualRestore()">重新恢复</button>
   </div>
 </div>
-<style>@keyframes rspin{to{transform:rotate(360deg)}}</style>
+<style>@keyframes rspin{to{transform:rotate(360deg)}}
+/* ===== Sync Log Panel ===== */
+#syncLogToggle {
+  position: fixed; bottom: 70px; right: 12px; z-index: 9999;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.85); backdrop-filter: blur(8px);
+  border: 1px solid rgba(0,0,0,0.1); display: flex; align-items: center;
+  justify-content: center; font-size: 16px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12); transition: transform 0.2s;
+}
+#syncLogToggle:active { transform: scale(0.9); }
+#syncLogPanel {
+  position: fixed; bottom: 110px; right: 12px; z-index: 9998;
+  width: min(380px, calc(100vw - 24px)); max-height: 50vh;
+  background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
+  border-radius: 16px; border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15); display: none;
+  flex-direction: column; overflow: hidden;
+}
+#syncLogPanel.open { display: flex; }
+#syncLogHeader {
+  padding: 10px 14px; font-size: 13px; font-weight: 600;
+  color: #333; border-bottom: 1px solid rgba(0,0,0,0.06);
+  display: flex; justify-content: space-between; align-items: center;
+}
+#syncLogClear { font-size: 12px; color: #999; cursor: pointer; border: none; background: none; }
+#syncLogBody {
+  flex: 1; overflow-y: auto; padding: 8px 0;
+  -webkit-overflow-scrolling: touch;
+}
+.log-entry {
+  padding: 4px 14px; font-size: 11px; font-family: 'SF Mono', 'Menlo', monospace;
+  line-height: 1.5; border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.log-entry .log-time { color: #999; margin-right: 6px; }
+.log-entry.log-sync { color: #007AFF; }
+.log-entry.log-data { color: #34C759; }
+.log-entry.log-error { color: #FF3B30; background: rgba(255,59,48,0.05); }
+.log-entry.log-user { color: #FF9500; }
+.log-entry.log-system { color: #5856D6; }
+
+</style>
 
 <script>
 // ===== Image DB (IndexedDB) =====
@@ -646,8 +728,44 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713m'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713n'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
+
+// ===== Sync Logger =====
+const _syncLog = [];
+const _syncLogMax = 200;
+function syncLog(type, msg) {
+  const now = new Date();
+  const ts = now.toLocaleTimeString('zh-CN', {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const entry = {type, msg, ts};
+  _syncLog.push(entry);
+  if (_syncLog.length > _syncLogMax) _syncLog.shift();
+  console.log(`[${type.toUpperCase()}] ${ts} ${msg}`);
+  // Update panel if open
+  const body = document.getElementById('syncLogBody');
+  if (body && document.getElementById('syncLogPanel')?.classList.contains('open')) {
+    const div = document.createElement('div');
+    div.className = 'log-entry log-' + type;
+    div.innerHTML = '<span class="log-time">' + ts + '</span>' + msg;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+}
+
+function _renderLogPanel() {
+  const body = document.getElementById('syncLogBody');
+  if (!body) return;
+  body.innerHTML = '';
+  for (const e of _syncLog) {
+    const div = document.createElement('div');
+    div.className = 'log-entry log-' + e.type;
+    div.innerHTML = '<span class="log-time">' + e.ts + '</span>' + e.msg;
+    body.appendChild(div);
+  }
+  body.scrollTop = body.scrollHeight;
+}
+
+
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
 let store = {
@@ -695,7 +813,8 @@ const DRAFT_CAT_COLOR = '#8E8E93';
 const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
 function save() {
-  store.lastModified = Date.now(); // 标记本地数据修改时间，pull时据此判断谁更新
+  store.lastModified = Date.now();
+  syncLog('user', '保存数据: ' + store.todos.length + ' 条'); // 标记本地数据修改时间，pull时据此判断谁更新
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   _lastSaveTime = Date.now();
   // 1秒防抖云同步（缩短到1秒，减少关App时push未完成的风险）
@@ -785,6 +904,9 @@ const cloudSync = {
   },
 
   setStatus(status, text) {
+    if (status === 'syncing') syncLog('sync', '⏳ ' + (text||'同步中'));
+    else if (status === 'synced') syncLog('sync', '✅ ' + (text||'已同步'));
+    else if (status === 'error') syncLog('error', '❌ ' + (text||'同步错误'));
     const el = document.getElementById('syncStatus');
     const iconEl = document.getElementById('syncIcon');
     const textEl = document.getElementById('syncText');
@@ -959,6 +1081,7 @@ const cloudSync = {
 
   async pull(skipOverwrite = false) {
     try {
+      syncLog('sync', '开始拉取云端数据...');
       this.setStatus('syncing', '同步中');
       
       if (skipOverwrite) {
@@ -975,7 +1098,7 @@ const cloudSync = {
       
       if (mainResult.ok && mainResult.data && mainResult.data.categories) {
         cloudData = mainResult.data;
-        console.log(`[CloudSync] data-v2.json loaded: ${cloudData.todos?.length} todos`);
+        console.log(`[CloudSync] data-v2.json loaded: ${cloudData.todos?.length} todos`); syncLog('data', '云端数据: ' + (cloudData.todos?.length||0) + ' 条待办, ' + (Object.keys(cloudData.assignments||{}).length) + ' 天行程');
       } else if (mainResult.status === 404 || !mainResult.ok) {
         // data-v2.json 不存在或获取失败，尝试从旧 data.json 迁移
         console.log('[CloudSync] data-v2.json not found, migrating from data.json...');
@@ -1008,7 +1131,7 @@ const cloudSync = {
       
       if (localCount < 50 && cloudCount >= 50) {
         // 【数据恢复模式】本地数据太少，直接用云端
-        console.log(`[CloudSync] Recovery mode: local=${localCount}, cloud=${cloudCount}`);
+        console.log(`[CloudSync] Recovery mode: local=${localCount}, cloud=${cloudCount}`); syncLog('data', '恢复模式: 本地=' + localCount + ' 云端=' + cloudCount);
         await migrateImagesToIDB(cloudData);
         store = cloudData;
       } else if (localCount === 0 || (localCount <= 9 && cloudCount > 9)) {
@@ -1019,7 +1142,7 @@ const cloudSync = {
         const merged = this.mergeData(store, cloudData);
         await migrateImagesToIDB(merged);
         store = merged;
-        console.log(`[CloudSync] Merged: local=${localCount} + cloud=${cloudCount} = ${store.todos.length} todos`);
+        console.log(`[CloudSync] Merged: local=${localCount} + cloud=${cloudCount} = ${store.todos.length} todos`); syncLog('data', '合并结果: 本地=' + localCount + ' + 云端=' + cloudCount + ' = ' + store.todos.length + ' 条');
       }
       
       // 确保所有 todo 有 order 字段
@@ -1029,14 +1152,14 @@ const cloudSync = {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
       
       this.setStatus('synced', '已同步');
-      console.log(`[CloudSync] Pull success: ${store.todos.length} todos`);
+      console.log(`[CloudSync] Pull success: ${store.todos.length} todos`); syncLog('sync', '拉取成功: ' + store.todos.length + ' 条待办, 7/13行程=' + (store.assignments?.['2026-07-13']?.length||0) + ' 项');
 
       // 3. 异步加载日记图片（不阻塞UI）
       this._loadDiaryImages();
       
       return true;
     } catch (e) {
-      console.warn('[CloudSync] Pull failed:', e.message);
+      console.warn('[CloudSync] Pull failed:', e.message); syncLog('error', '拉取失败: ' + e.message);
       this.setStatus('error', '离线');
       return false;
     }
@@ -1078,7 +1201,7 @@ const cloudSync = {
   async _doPush() {
     if (this._syncing) return;
     if (store.todos.length <= 20) {
-      console.warn(`[CloudSync] Push blocked: only ${store.todos.length} todos`);
+      console.warn(`[CloudSync] Push blocked: only ${store.todos.length} todos`); syncLog('error', '推送被阻止: 仅 ' + store.todos.length + ' 条');
       this.setStatus('synced', '已同步');
       return;
     }
@@ -1088,7 +1211,7 @@ const cloudSync = {
       if (checkResult.ok && checkResult.data && checkResult.data.todos) {
         const cloudCount = checkResult.data.todos.length;
         if (cloudCount > store.todos.length) {
-          console.warn(`[CloudSync] Push blocked: cloud has ${cloudCount} > local ${store.todos.length}`);
+          console.warn(`[CloudSync] Push blocked: cloud has ${cloudCount} > local ${store.todos.length}`); syncLog('error', '推送被阻止: 云端 ' + cloudCount + ' > 本地 ' + store.todos.length);
           // 云端数据更多，拉取云端数据合并
           const merged = this.mergeData(store, checkResult.data);
           store = merged;
@@ -1101,6 +1224,7 @@ const cloudSync = {
     } catch(e) {}
     this._syncing = true;
     try {
+      syncLog('sync', '开始推送云端... 待办=' + store.todos.length + ' 条');
       this.setStatus('syncing', '备份中');
       
       // 获取 data-v2.json 的 SHA
@@ -1114,6 +1238,7 @@ const cloudSync = {
       
       // 推送 data-v2.json（不含图片，~36KB，秒级）
       await this._putMainData();
+      syncLog('sync', '推送成功: data-v2.json (' + store.todos.length + ' 条)');
       this.setStatus('synced', '已同步');
       
       // 异步推送日记图片（不阻塞）
@@ -3117,7 +3242,7 @@ function renderCurrentPage() {
 }
 
 // ===== Init =====
-if (!load()) initDefaults();
+if (!load()) { initDefaults(); syncLog('system', '初始化默认数据'); } else { syncLog('data', '加载本地数据: ' + store.todos.length + ' 条待办'); }
 // 初始化 order 计数器：取现有 todo 的最大 order + 1
 _orderCounter = store.todos.reduce((max, t) => Math.max(max, t.order || 0), 0) + 1;
 
@@ -3179,7 +3304,7 @@ _orderCounter = store.todos.reduce((max, t) => Math.max(max, t.order || 0), 0) +
 // 只在代码版本比localStorage记录的更新时才刷新（防止缓存旧代码时循环刷新）
 const storedBuild = localStorage.getItem('app_build');
 if (storedBuild && storedBuild !== APP_BUILD && APP_BUILD > storedBuild) {
-  console.log(`[Init] Code updated (${storedBuild} → ${APP_BUILD}), reloading...`);
+  console.log(`[Init] Code updated (${storedBuild} → ${APP_BUILD}), reloading...`); syncLog('system', '代码更新 ' + storedBuild + ' → ' + APP_BUILD + '，刷新中...');
   localStorage.setItem('app_build', APP_BUILD);
   location.reload();
 }
@@ -3294,16 +3419,19 @@ cloudSync.pull(false).then(success => {
 // Auto-sync: 多重保障确保数据备份到云端
 // 1. beforeunload（桌面浏览器可靠）
 window.addEventListener('beforeunload', () => {
+    syncLog('system', 'beforeunload 触发');
   cloudSync.pushNow();
 });
 // 2. visibilitychange（iOS 切后台/锁屏时触发，最可靠）
 document.addEventListener('visibilitychange', () => {
+    syncLog('system', '页面' + (document.hidden ? '隐藏' : '可见'));
   if (document.visibilityState === 'hidden') {
     cloudSync.pushNow();
   }
 });
 // 3. pagehide（iOS 页面卸载时触发，比 beforeunload 可靠）
 window.addEventListener('pagehide', () => {
+    syncLog('system', 'pagehide 触发');
   cloudSync.pushNow();
 });
 // 4. 定时轻量备份：每5分钟一次，距上次操作超过30秒才触发
@@ -3368,5 +3496,12 @@ if ('serviceWorker' in navigator) {
   }).catch(err => console.warn('[SW] Registration failed:', err));
 }
 </script>
+
+<div id="syncLogToggle" onclick="const p=document.getElementById('syncLogPanel');p.classList.toggle('open');if(p.classList.contains('open'))_renderLogPanel();">📋</div>
+<div id="syncLogPanel">
+  <div id="syncLogHeader"><span>同步日志</span><button id="syncLogClear" onclick="_syncLog.length=0;_renderLogPanel();">清空</button></div>
+  <div id="syncLogBody"></div>
+</div>
+
 </body>
 </html>
