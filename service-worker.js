@@ -1,5 +1,5 @@
 // Service Worker - 日程管理 PWA
-const CACHE_VERSION = 'v40';
+const CACHE_VERSION = 'v41';
 const CACHE_NAME = `schedule-app-${CACHE_VERSION}`;
 
 // 需要缓存的静态资源列表

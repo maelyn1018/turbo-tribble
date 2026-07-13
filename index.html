@@ -636,7 +636,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713c'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713d'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -2940,33 +2940,77 @@ updateUndoBtnState();
 })();
 
 // Cloud sync: pull from GitHub on startup
-// 每次启动都从云端拉取最新数据（iOS standalone PWA 与 Safari localStorage 隔离）
-// 如果本地数据明显不完整（<50条），先显示恢复提示，拉取后再渲染
+// 如果本地数据明显不完整（<50条），显示恢复遮罩，强制从云端拉取
+function showRestoreOverlay(show, error) {
+  const overlay = document.getElementById('restoreOverlay');
+  if (!overlay) return;
+  if (show) {
+    overlay.style.display = 'flex';
+    if (error) {
+      document.getElementById('restoreIcon').textContent = '❌';
+      document.getElementById('restoreTitle').textContent = '数据恢复失败';
+      document.getElementById('restoreSub').textContent = error;
+      document.getElementById('restoreSpinner').style.display = 'none';
+      document.getElementById('restoreRetryBtn').style.display = 'inline-block';
+    }
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+async function manualRestore() {
+  showRestoreOverlay(true);
+  document.getElementById('restoreIcon').textContent = '☁️';
+  document.getElementById('restoreTitle').textContent = '正在从云端恢复数据...';
+  document.getElementById('restoreSub').textContent = '请稍候，不要关闭页面';
+  document.getElementById('restoreSpinner').style.display = 'block';
+  document.getElementById('restoreRetryBtn').style.display = 'none';
+  
+  try {
+    const success = await cloudSync.pull(false);
+    if (success && store.todos.length >= 50) {
+      ensureDraftCategory();
+      save();
+      renderCurrentPage();
+      updateUndoBtnState();
+      showRestoreOverlay(false);
+      showToast('数据已恢复 ✓ (' + store.todos.length + '条)');
+    } else {
+      showRestoreOverlay(true, '云端数据不足，请检查网络后重试');
+    }
+  } catch(e) {
+    showRestoreOverlay(true, '网络错误：' + e.message);
+  }
+}
+
 if (localDataIsStale) {
-  showToast('正在从云端恢复数据...');
+  showRestoreOverlay(true);
 }
 cloudSync.pull(false).then(success => {
   if (success) {
     ensureDraftCategory();
     renderCurrentPage();
     updateUndoBtnState();
-    // 数据恢复后强制保存一次，确保lastModified正确
-    if (localDataIsStale && store.todos.length >= 50) {
-      save();
-      showToast('数据已恢复 ✓ (' + store.todos.length + '条)');
-      console.log('[Init] Data recovered from cloud: ' + store.todos.length + ' todos');
+    if (localDataIsStale) {
+      if (store.todos.length >= 50) {
+        save();
+        showRestoreOverlay(false);
+        showToast('数据已恢复 ✓ (' + store.todos.length + '条)');
+        console.log('[Init] Data recovered: ' + store.todos.length + ' todos');
+      } else {
+        showRestoreOverlay(true, '云端数据不足 (' + store.todos.length + '条)，请联系管理员');
+      }
     }
   } else {
-    console.warn('[Init] Cloud pull failed, using local data');
-    // 拉取失败但本地数据太少，提示用户
-    if (store.todos.length < 20) {
-      showToast('云端同步失败，请检查网络后重开');
+    console.warn('[Init] Cloud pull failed');
+    if (store.todos.length < 50) {
+      showRestoreOverlay(true, '无法连接云端，请检查网络');
     }
   }
 }).catch(err => {
   console.warn('[Init] Cloud pull error:', err);
-  if (store.todos.length < 20) {
-    showToast('数据恢复失败，请检查网络');
+  if (store.todos.length < 50) {
+    showRestoreOverlay(true, '网络错误：' + (err.message || '未知'));
   }
 });
 
