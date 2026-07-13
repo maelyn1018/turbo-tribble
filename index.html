@@ -646,7 +646,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713i'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713j'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -853,10 +853,17 @@ const cloudSync = {
     // 4. 合并 assignments：按日期，优先非空的
     if (local.assignments && typeof local.assignments === 'object') {
       for (const [date, localAssgn] of Object.entries(local.assignments)) {
+        if (!Array.isArray(localAssgn) || localAssgn.length === 0) continue;
         const cloudAssgn = result.assignments?.[date];
-        if (!cloudAssgn || (Array.isArray(localAssgn) && localAssgn.length > 0 && (!Array.isArray(cloudAssgn) || cloudAssgn.length === 0))) {
+        if (!cloudAssgn || !Array.isArray(cloudAssgn) || cloudAssgn.length === 0) {
+          // 云端该日期无数据 → 用本地的
           if (!result.assignments) result.assignments = {};
           result.assignments[date] = localAssgn;
+        } else {
+          // 两边都有 → 取并集（合并去重）
+          const merged = new Set(cloudAssgn);
+          for (const id of localAssgn) { merged.add(id); }
+          result.assignments[date] = Array.from(merged);
         }
       }
     }
@@ -913,6 +920,24 @@ const cloudSync = {
     return { data, sha, rawOk: rawResp.ok, apiOk: apiResp.ok, apiStatus: apiResp.status };
   },
 
+  // 快速拉取：仅用 raw URL（无 CORS 预检，移动端快 3-5 秒）
+  async _fetchDataOnly(filePath, timeoutMs = 10000) {
+    try {
+      const resp = await Promise.race([
+        fetch(`https://raw.githubusercontent.com/${this.REPO}/main/${filePath}?t=${Date.now()}`),
+        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), timeoutMs))
+      ]);
+      if (resp.ok) {
+        const data = await resp.json();
+        return { data, ok: true };
+      }
+      return { data: null, ok: false, status: resp.status };
+    } catch(e) {
+      console.warn('[CloudSync] _fetchDataOnly failed:', e.message);
+      return { data: null, ok: false };
+    }
+  },
+
   async pull(skipOverwrite = false) {
     try {
       this.setStatus('syncing', '同步中');
@@ -925,28 +950,22 @@ const cloudSync = {
         return true;
       }
 
-      // 1. 先拉 data-v2.json（新的轻量文件，~36KB，秒级）
+      // 1. 用 raw URL 快速拉 data-v2.json（无 CORS 预检，秒级）
       let cloudData = null;
-      const mainResult = await this._fetchFile(this.FILE_PATH, 15000);
-      if (mainResult.sha) this._sha = mainResult.sha;
+      const mainResult = await this._fetchDataOnly(this.FILE_PATH, 10000);
       
-      if (mainResult.data && mainResult.data.categories) {
+      if (mainResult.ok && mainResult.data && mainResult.data.categories) {
         cloudData = mainResult.data;
         console.log(`[CloudSync] data-v2.json loaded: ${cloudData.todos?.length} todos`);
-      } else if (mainResult.apiStatus === 404) {
-        // data-v2.json 不存在（首次运行），尝试从旧 data.json 迁移
+      } else if (mainResult.status === 404 || !mainResult.ok) {
+        // data-v2.json 不存在或获取失败，尝试从旧 data.json 迁移
         console.log('[CloudSync] data-v2.json not found, migrating from data.json...');
-        const oldResult = await this._fetchFile(this.OLD_FILE_PATH, 30000);
-        if (oldResult.data && oldResult.data.categories) {
+        const oldResult = await this._fetchDataOnly(this.OLD_FILE_PATH, 15000);
+        if (oldResult.ok && oldResult.data && oldResult.data.categories) {
           cloudData = oldResult.data;
-          // 迁移图片到 IndexedDB
           await migrateImagesToIDB(cloudData);
           console.log(`[CloudSync] Migrated from data.json: ${cloudData.todos?.length} todos`);
           this._migrated = true;
-        }
-        // 同时获取旧文件的SHA（防止后续push冲突）
-        if (oldResult.sha) {
-          // 保留旧SHA，但实际我们不会push到data.json
         }
       }
 
@@ -966,7 +985,6 @@ const cloudSync = {
         await migrateImagesToIDB(cloudData);
         store = cloudData;
       } else if (localCount === 0 || (localCount <= 9 && cloudCount > 9)) {
-        // 本地几乎为空，用云端
         await migrateImagesToIDB(cloudData);
         store = cloudData;
       } else {
