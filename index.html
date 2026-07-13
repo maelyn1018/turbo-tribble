@@ -636,7 +636,7 @@ const imgDB = {
 };
 
 // ===== Data Store =====
-const APP_BUILD = '20260713b'; // 每次部署更新此值，用于强制刷新缓存
+const APP_BUILD = '20260713c'; // 每次部署更新此值，用于强制刷新缓存
 const STORAGE_KEY = 'scheduleApp_v3';
 let _orderCounter = 1; // 递增计数器，初始化时设为 max(order)+1
 let _lastSaveTime = Date.now(); // 供定时备份判断是否有变更
@@ -2941,7 +2941,7 @@ updateUndoBtnState();
 
 // Cloud sync: pull from GitHub on startup
 // 每次启动都从云端拉取最新数据（iOS standalone PWA 与 Safari localStorage 隔离）
-// 先用本地数据渲染页面，云端拉取成功后刷新
+// 如果本地数据明显不完整（<50条），先显示恢复提示，拉取后再渲染
 if (localDataIsStale) {
   showToast('正在从云端恢复数据...');
 }
@@ -2950,11 +2950,23 @@ cloudSync.pull(false).then(success => {
     ensureDraftCategory();
     renderCurrentPage();
     updateUndoBtnState();
-    if (localDataIsStale) {
-      showToast('数据已恢复 ✓');
+    // 数据恢复后强制保存一次，确保lastModified正确
+    if (localDataIsStale && store.todos.length >= 50) {
+      save();
+      showToast('数据已恢复 ✓ (' + store.todos.length + '条)');
+      console.log('[Init] Data recovered from cloud: ' + store.todos.length + ' todos');
     }
   } else {
     console.warn('[Init] Cloud pull failed, using local data');
+    // 拉取失败但本地数据太少，提示用户
+    if (store.todos.length < 20) {
+      showToast('云端同步失败，请检查网络后重开');
+    }
+  }
+}).catch(err => {
+  console.warn('[Init] Cloud pull error:', err);
+  if (store.todos.length < 20) {
+    showToast('数据恢复失败，请检查网络');
   }
 });
 
