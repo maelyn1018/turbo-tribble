@@ -421,24 +421,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 <!-- ONE-TIME RESET: open with ?reset=1 to clear all data -->
 <script>
 if (new URLSearchParams(location.search).get('reset') === '1') {
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:24px;color:#4A90D9">🔄 清除数据中...</div>';
   localStorage.clear();
   sessionStorage.clear();
-  // Also unregister service worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs) {
-      regs.forEach(function(reg) { reg.unregister(); });
-    });
-  }
-  // Clear caches API
-  if ('caches' in window) {
-    caches.keys().then(function(names) {
-      names.forEach(function(name) { caches.delete(name); });
-    });
-  }
-  // Reload without reset param
-  setTimeout(function() {
-    location.replace(location.origin + location.pathname);
-  }, 500);
+  Promise.all([
+    'serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations().then(function(regs) {
+      return Promise.all(regs.map(function(reg) { return reg.unregister(); }));
+    }) : Promise.resolve(),
+    'caches' in window ? caches.keys().then(function(names) {
+      return Promise.all(names.map(function(name) { return caches.delete(name); }));
+    }) : Promise.resolve()
+  ]).then(function() {
+    // Force hard reload without cache
+    location.replace(location.origin + location.pathname + '?t=' + Date.now());
+  });
 }
 </script>
 
