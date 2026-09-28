@@ -417,6 +417,31 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .log-entry.log-system { color: #5856D6; }
 
 </style>
+
+<!-- ONE-TIME RESET: open with ?reset=1 to clear all data -->
+<script>
+if (new URLSearchParams(location.search).get('reset') === '1') {
+  localStorage.clear();
+  sessionStorage.clear();
+  // Also unregister service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(regs) {
+      regs.forEach(function(reg) { reg.unregister(); });
+    });
+  }
+  // Clear caches API
+  if ('caches' in window) {
+    caches.keys().then(function(names) {
+      names.forEach(function(name) { caches.delete(name); });
+    });
+  }
+  // Reload without reset param
+  setTimeout(function() {
+    location.replace(location.origin + location.pathname);
+  }, 500);
+}
+</script>
+
 </head>
 <body>
 <div id="app">
