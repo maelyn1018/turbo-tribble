@@ -50,6 +50,11 @@ self.addEventListener('activate', (event) => {
 
 // ===== 请求拦截 =====
 self.addEventListener('fetch', (event) => {
+  // Bypass cache for reset requests
+  if (event.request.url.includes('reset=1')) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith('http')) return;
 
