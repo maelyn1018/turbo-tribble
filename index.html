@@ -417,7 +417,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
 .log-entry.log-system { color: #5856D6; }
 
 </style>
-
 </head>
 <body>
 <div id="app">
@@ -500,7 +499,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text"
       <div class="diary-toggle">
         <button class="active" onclick="switchDiaryView('daily')">日记</button>
         <button onclick="switchDiaryView('monthly')">月记</button>
-        <button onclick="confirmClearAll()" style="background:none;border:none;color:#FF3B30;font-size:20px;padding:0 4px;margin-left:8px;cursor:pointer" title="清空所有数据">🗑️</button>
       </div>
     </div>
     <div id="diaryDaily">
@@ -901,7 +899,7 @@ async function migrateImagesToIDB(data) {
 // ===== Cloud Backup (GitHub) =====
 // 核心原则：本地是唯一真相源，云端是备份。不存在"同步"，只有"备份到云端"和"从云端恢复"。
 const cloudSync = {
-  GITHUB_TOKEN: 'ghp_lqdzGs9nj5wGB' + 'pIetx5eQZVMdX5z7u3l2dVn',
+  GITHUB_TOKEN: 'ghp_5McUezT' + 'HPb99eJBdBB85gQuOw0074v0Na1Jm',
   REPO: 'maelyn1018/turbo-tribble',
   FILE_PATH: 'data-v3.json',
   DIARY_IMG_PATH: 'diary-images.json',
@@ -3483,40 +3481,6 @@ if ('serviceWorker' in navigator) {
       });
     });
   }).catch(err => console.warn('[SW] Registration failed:', err));
-}
-
-function confirmClearAll(){
-  if(confirm('确定要清空所有日程数据吗？此操作不可撤销。')){
-    if(confirm('再次确认：所有Todo、日程分配、日记将全部删除，重新开始？')){
-      localStorage.clear();
-      sessionStorage.clear();
-      if('serviceWorker' in navigator){
-        navigator.serviceWorker.getRegistrations().then(function(regs){regs.forEach(function(r){r.unregister();})});
-      }
-      if('caches' in window){
-        caches.keys().then(function(names){names.forEach(function(n){caches.delete(n);})});
-      }
-      // Push empty data to cloud
-      try{
-        var emptyData = {
-          categories: [
-            {id:'cat_daily', name:'日常事务', color:'#4A90D9'},
-            {id:'cat_newlife', name:'newlife灵感', color:'#FF6B9D'},
-            {id:'cat_draft', name:'日程草稿箱', color:'#8E8E93'}
-          ],
-          todos: [],
-          assignments: {},
-          diary: {},
-          completedLog: {},
-          lastModified: Date.now()
-        };
-        localStorage.setItem('scheduleData', JSON.stringify(emptyData));
-        if(typeof cloudSync !== 'undefined' && cloudSync.push) cloudSync.push();
-      }catch(e){}
-      alert('数据已清空！App将重新加载。');
-      location.reload();
-    }
-  }
 }
 </script>
 
